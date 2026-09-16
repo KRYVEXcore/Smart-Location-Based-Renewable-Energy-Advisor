@@ -1,6 +1,9 @@
-# Backend — Smart Renewable Energy Advisor
+# Backend — India-Based Smart Location-Based Renewable Energy Advisor
 
-FastAPI + SQLAlchemy + PostgreSQL + Alembic.
+FastAPI + SQLAlchemy + PostgreSQL + Alembic. Serves India-based location,
+resource, tariff, and incentive data — see the root README's
+[India-Based Tariff & Incentive Architecture](../README.md#india-based-tariff--incentive-architecture)
+section for the data model this backend implements.
 
 ## Setup
 
@@ -43,6 +46,12 @@ Location provider tests (`test_location_providers.py`) never make a live
 network call either — they replay canned responses through mocked provider
 classes in `tests/location_fakes.py` (never wired into production).
 
+Tariff/incentive model tests (`test_tariff_and_incentive_models.py`) and
+India location resolution tests (`test_india_geography.py`,
+`test_india_resolver.py`) use only clearly-named `TEST-*` fixture rows in
+that same isolated SQLite database — never real tariff, subsidy, or DISCOM
+data, and never the production PostgreSQL database.
+
 ## Environment variables
 
 Copy [`../.env.example`](../.env.example) to `.env` inside this `backend/`
@@ -55,5 +64,6 @@ See the [repository root README](../README.md#repository-structure) for the
 full architecture and directory layout, and
 [Database Models](../README.md#database-models) /
 [API Endpoints](../README.md#api-endpoints) /
-[Location Intelligence](../README.md#location-intelligence-phase-3) for the
-schema, API, and provider architecture.
+[Location Intelligence](../README.md#location-intelligence-phase-3) /
+[India-Based Tariff & Incentive Architecture](../README.md#india-based-tariff--incentive-architecture)
+for the schema, API, and provider architecture.

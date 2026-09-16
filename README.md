@@ -1,18 +1,24 @@
 # Smart Location-Based Renewable Energy Advisor
 
-A location-aware decision-support platform that helps individuals and small
-institutions evaluate renewable energy options — Solar PV, Small Wind,
-Solar+Wind Hybrid, Battery Storage, and combinations of these — based on
-their own location, building, energy needs, and budget.
+**An India-based decision-support platform** that helps individuals and
+small institutions evaluate renewable energy options — Solar PV, Small
+Wind, Solar+Wind Hybrid, Battery Storage, and combinations of these — using
+India-based resources and data for their own location, building, energy
+needs, and budget.
 
 ## Project Purpose
 
 Choosing a renewable energy system is hard to do well without site-specific
 data: local solar and wind resource, roof or land area, consumption
-patterns, installation cost, and available incentives all matter. This
-platform's goal is to turn that information into a clear, explainable
+patterns, installation cost, and available incentives all matter — and in
+India, all of these are genuinely local: solar/wind resource varies by
+region, electricity tariffs are set per state/UT and per DISCOM, and
+incentive schemes exist at the central, state/UT, and DISCOM level, each
+with its own eligibility rules. This platform's goal is to turn
+India-based location and resource data into a clear, explainable
 recommendation — sized and costed by deterministic engineering calculations,
-never guessed by an AI model.
+never guessed by an AI model, and never a single nationwide number applied
+everywhere.
 
 ## Architecture
 
@@ -80,20 +86,24 @@ renewable-energy-advisor/
 │   ├── app/
 │   │   ├── main.py                FastAPI app instance, CORS, error handling, router wiring
 │   │   ├── api/v1/routes/         health.py, assessments.py, locations.py
-│   │   ├── core/                    config.py, security.py, constants.py
+│   │   ├── core/                    config.py, security.py, constants.py,
+│   │   │                              india_geography.py (static states/UTs list)
 │   │   ├── database/
 │   │   │   ├── connection.py          SQLAlchemy engine, session factory, Base
 │   │   │   └── repositories/            assessment_repository.py,
-│   │   │                                  location_resource_snapshot_repository.py
+│   │   │                                  location_resource_snapshot_repository.py,
+│   │   │                                  discom_repository.py
 │   │   ├── models/                   User, Building, Location, EnergyProfile,
 │   │   │                                BuildingConstraints, Assessment,
-│   │   │                                LocationResourceSnapshot, enums.py
+│   │   │                                LocationResourceSnapshot, Discom,
+│   │   │                                ElectricityTariff, IncentiveProgram, enums.py
 │   │   ├── schemas/                   assessment.py, location.py
 │   │   ├── services/
 │   │   │   ├── assessment_service.py    Assessment persistence orchestration
 │   │   │   ├── prototype_user.py         Centralized prototype-user resolution
 │   │   │   ├── location/                  LocationService, cache, provider_factory,
-│   │   │   │                                dependencies.py, providers/ (Phase 3)
+│   │   │   │                                dependencies.py, providers/ (Phase 3),
+│   │   │   │                                india_resolver.py (India architecture update)
 │   │   │   ├── ai/                        AIAdvisorService interface (Phase 10)
 │   │   │   └── voice/                      Speech-to-text / text-to-speech / voice advisor interfaces (Phase 11)
 │   │   ├── engines/
@@ -258,9 +268,24 @@ User (id, created_at)
              └── BuildingConstraints (roof_area_sqft, land_area_sqft, budget_inr, backup_required)
 
 LocationResourceSnapshot (latitude, longitude, resource_type, provider, payload, retrieved_at)
+
+Discom (id, name, short_code, state, union_territory, is_active)
+
+ElectricityTariff (state, union_territory, discom_id, consumer_category,
+                    tariff_name, slab_min_kwh, slab_max_kwh,
+                    energy_charge_inr_per_kwh, fixed_charge_inr, demand_charge_inr,
+                    effective_from, effective_to, source_url, source_document,
+                    last_verified, active)
+
+IncentiveProgram (scheme_name, level, state, union_territory, discom_id,
+                   consumer_category, technology, min_system_size_kw, max_system_size_kw,
+                   subsidy_type, subsidy_value, percentage_value, maximum_amount,
+                   eligibility_rules, effective_from, effective_to, source_url,
+                   source_document, last_verified, active)
 ```
 
-- `building_type`: `home` | `school` | `office` | `shop` | `small_institution` | `other`
+- `building_type` (also used as `consumer_category` on tariffs/incentives):
+  `home` | `school` | `college` | `office` | `shop` | `small_institution` | `other`
 - `status`: `draft` | `submitted` | `completed` — Phase 2 always saves `submitted`
 - `User` has no authentication yet. Every request is attributed to a single
   deterministic prototype user (`app/services/prototype_user.py`) — see the
@@ -272,6 +297,12 @@ LocationResourceSnapshot (latitude, longitude, resource_type, provider, payload,
   resource provider returned and when, keyed by coordinate rather than a
   specific assessment (see [Location Intelligence](#location-intelligence-phase-3)
   below) — it is not a foreign key relation off `Location`.
+- `Discom`, `ElectricityTariff`, and `IncentiveProgram` are the India-based
+  tariff/incentive architecture added to prepare for the Solar Engine —
+  see [India-Based Tariff & Incentive Architecture](#india-based-tariff--incentive-architecture)
+  below. **No production rows are seeded in any of the three** — populating
+  real tariff orders and scheme data, and the engine that resolves a user's
+  exact tariff/incentives, are future work.
 
 ## API Endpoints
 
@@ -286,7 +317,7 @@ All under `API_V1_PREFIX` (`/api/v1`):
 | PUT    | `/assessments/{id}`     | Update an assessment (partial, per-section) |
 | DELETE | `/assessments/{id}`     | Delete an assessment                   |
 | GET    | `/locations/search`     | Geocode a place name (`?q=...`)          |
-| GET    | `/locations/profile`    | Normalized solar/wind/weather/elevation data for a coordinate (`?latitude=...&longitude=...`) |
+| GET    | `/locations/profile`    | Normalized solar/wind/weather/elevation data, plus India location resolution (state/UT/district/city/DISCOM), for a coordinate (`?latitude=...&longitude=...`) |
 
 Example `POST /api/v1/assessments` payload:
 
@@ -327,6 +358,8 @@ FastAPI  GET /locations/search | GET /locations/profile
 LocationService  (app/services/location/location_service.py)
  v
 Provider Factory  ->  Geocoding | Solar | Wind | Weather | Elevation adapters
+ |
+ +--> IndiaLocationResolver  ->  state/UT -> district -> city -> DISCOM
  v
 Normalized LocationProfile  (never a specific provider's raw shape)
 ```
@@ -388,6 +421,117 @@ mock. Provider-normalization tests replay real, previously-captured response
 shapes through `monkeypatch`ed `httpx.get` calls — no test makes a live
 network call.
 
+### India location resolution
+
+Every `GET /locations/profile` response includes an `india` section
+(`app/services/location/india_resolver.py`), resolving the reverse-geocoded
+address to India's administrative hierarchy for future tariff/incentive
+matching:
+
+```
+latitude/longitude -> state or union territory -> district -> city -> DISCOM
+```
+
+- `state`/`union_territory` are normalized to the canonical spelling in
+  `app/core/india_geography.py` (a static, universally-known list of India's
+  28 states and 8 union territories — not a sourced/versioned policy value,
+  unlike tariffs and incentives below). A geocoder result that doesn't match
+  any known state/UT (typos, a location outside India, an unrecognized
+  alias) comes back `null` — never a guessed nearest match.
+- `district`/`city` come directly from the geocoder's normalized
+  `GeocodingCandidate` (Nominatim's `state_district`/`county` and
+  `city`/`town`/`village` address components).
+- `discom` is resolved from the `Discom` table by matching the normalized
+  state/UT. **The app never guesses a DISCOM from a city name.** If zero
+  DISCOM rows match, or if more than one DISCOM serves that state and
+  there's no way to disambiguate further, `discom` is `null` and
+  `discom_status` explains why (`"not_identified"` or `"ambiguous"` — only
+  `"identified"` when exactly one active match exists). The `discoms` table
+  ships empty; nothing is guessed or seeded as if it were real.
+
+## India-Based Tariff & Incentive Architecture
+
+Prepares the data model the future India-Based Solar Engine (Phase 4) and
+Financial Engine will read from — **no calculation engine exists yet**, and
+**no production tariff or subsidy rows are seeded**. This section is
+data-model preparation, not a working tariff/incentive resolver.
+
+```
+LOCATION INTELLIGENCE  ------->  India Location Resolver
+   (solar/wind/weather/            (state/UT, district, city, DISCOM)
+    elevation — real-time
+    lookup, cached)                        |
+                                            v
+                              TARIFF / INCENTIVE DATA
+                        (ElectricityTariff, IncentiveProgram —
+                         versioned, sourced, DB-only, no calculation)
+                                            |
+                                            v
+                         Future Calculation Engines (Phase 4+)
+```
+
+This is a deliberate separation: **location intelligence provides
+environmental/resource data; tariff/incentive data provides electricity
+economics and scheme eligibility; calculation engines combine both with
+deterministic formulas.** No layer invents a value that belongs to another.
+
+### Tariff architecture (`app/models/electricity_tariff.py`)
+
+One row per tariff slab (a real tariff order typically has several, e.g.
+0–100 kWh, 101–300 kWh, ...): `state` / `union_territory`, `discom_id`
+(nullable FK to `Discom`), `consumer_category` (the same `BuildingType`
+enum used by assessments — home/school/**college**/office/shop/
+small_institution/other), `tariff_name`, `slab_min_kwh`/`slab_max_kwh`,
+`energy_charge_inr_per_kwh`, `fixed_charge_inr`, `demand_charge_inr`,
+plus the versioning/source fields below. The table is empty in production;
+only `tests/test_tariff_and_incentive_models.py`'s clearly-named `TEST-*`
+fixtures ever populate it. **No tariff calculation/resolution engine is
+implemented yet** — that's future work once real tariff orders are loaded.
+
+### Incentive architecture (`app/models/incentive_program.py`)
+
+One row per scheme. `level` separates **central** / **state** / **discom**
+schemes — they are never combined into one number. `consumer_category` is
+nullable (a scheme can be category-agnostic) but a future matching engine
+must treat `null` as "check `eligibility_rules`", never as "applies to
+everyone" — this is exactly what stops a residential central subsidy (e.g.
+PM Surya Ghar) from being silently applied to a school, college, or office.
+`technology` (solar/wind/hybrid/battery/other), `subsidy_type`
+(percentage/fixed_amount/per_kw/other) with `subsidy_value` (generic,
+meaning depends on `subsidy_type`), `percentage_value` +
+`maximum_amount` (for a capped percentage scheme), `min_system_size_kw` /
+`max_system_size_kw`, and a JSON `eligibility_rules` field for conditions
+that don't fit a column. The table is empty in production, same as
+tariffs.
+
+The architecture supports every case the eligibility rules require: a
+central-only scheme with no state top-up, a state scheme with no DISCOM
+rule, multiple simultaneously-applicable schemes (multiple rows), no
+additional incentive for a given state (simply no row), an expired scheme
+(`active=false`, `effective_to` in the past), and "eligibility unknown"
+(no row matches — the honest absence of data, not a guess).
+
+### Data versioning & source traceability
+
+Both `ElectricityTariff` and `IncentiveProgram` carry the same versioning
+fields: `effective_from`, `effective_to`, `last_verified`, `source_url`,
+`source_document`, `active`. A future engine must resolve the record valid
+on the assessment's date and must never use an expired record when an
+active one exists — this schema makes that check possible; it doesn't
+perform it yet. The frontend can eventually show, for any tariff or
+incentive: `Source: <source_document / source_url>`,
+`Last verified: <last_verified>`, `Effective: <effective_from> – <effective_to or "ongoing">`.
+No fake source URLs or verification dates are ever stored — an
+unpopulated record simply doesn't exist yet.
+
+### DISCOM registry (`app/models/discom.py`)
+
+A simple, empty-by-default registry: `name`, `short_code`, `state` /
+`union_territory` (exactly one expected per row), `is_active`. Real DISCOM
+boundary data (which DISCOM serves which district/city) is out of scope
+for this update — populating it from an authoritative source (each state's
+electricity regulatory commission) is future work.
+
 ## Security Notes (Phase 2 & 3)
 
 - No authentication yet. `app/services/prototype_user.py` centralizes a
@@ -408,25 +552,35 @@ network call.
 
 ## Current Development Phase
 
-**CURRENT PHASE: Phase 3 — Location Intelligence**
+**CURRENT STATUS: Phase 3 — Location Intelligence, complete, plus the
+India-Based Architecture Update (data-model preparation for Phase 4)**
 
 Phase 1 established the monorepo, frontend UI, and backend foundation.
 Phase 2 turned the assessment UI into a real backend-backed system with
-PostgreSQL persistence. Phase 3 adds a provider-agnostic location
+PostgreSQL persistence. Phase 3 added a provider-agnostic location
 intelligence layer: real geocoding, solar/wind/weather/elevation data from
 free keyless providers, a map, and resource cards on both the standalone
 Location page and the assessment Dashboard (using the assessment's saved
 coordinates). See [Location Intelligence](#location-intelligence-phase-3)
-above for the architecture. No solar/wind sizing, cost, subsidy,
-recommendation, AI, or voice behavior are implemented yet — Phase 3 only
-retrieves and normalizes resource data.
+above for that architecture.
+
+Between Phase 3 and Phase 4, an **India-based architecture update** added
+the data-model groundwork the India-Based Solar Engine will need: India
+location resolution (state/UT/district/city/DISCOM — see
+[India location resolution](#india-location-resolution)), and the
+tariff/incentive schema (see
+[India-Based Tariff & Incentive Architecture](#india-based-tariff--incentive-architecture)).
+This is architecture preparation only — no solar/wind sizing, cost,
+tariff/subsidy calculation, recommendation, AI, or voice behavior are
+implemented yet.
 
 ## Future Roadmap
 
 - Phase 1 — Foundation
 - Phase 2 — User Assessment + Database
 - Phase 3 — Location Intelligence
-- Phase 4 — Solar Engine
+- *(India-based architecture update — DISCOM/tariff/incentive data model)*
+- Phase 4 — India-Based Solar Engine
 - Phase 5 — Wind Engine
 - Phase 6 — Hybrid + Battery
 - Phase 7 — Recommendation Engine
