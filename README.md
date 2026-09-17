@@ -123,7 +123,9 @@ renewable-energy-advisor/
 │   └── tests/
 │
 ├── docs/                          Reserved for future architecture/API docs
+├── .devcontainer/                 GitHub Codespaces config (reuses docker-compose.yml)
 ├── .env.example
+├── .gitattributes                 Forces LF line endings on *.sh (Docker/Codespaces need this on Windows)
 ├── .gitignore
 ├── docker-compose.yml
 └── README.md
@@ -247,9 +249,29 @@ With Docker and Docker Compose installed:
 docker compose up --build
 ```
 
-This starts PostgreSQL, the backend (`http://localhost:8000`), and the
-frontend dev server (`http://localhost:5173`). Stop everything with
-`docker compose down` (add `-v` to also remove the PostgreSQL data volume).
+This starts PostgreSQL, the backend (`http://localhost:8000`, running
+`alembic upgrade head` automatically on every start — see
+`backend/docker-entrypoint.sh` — before `uvicorn`, so migrations never need
+a separate manual step here), and the frontend dev server
+(`http://localhost:5173`). Stop everything with `docker compose down` (add
+`-v` to also remove the PostgreSQL data volume).
+
+The frontend container talks to the backend container over the Docker
+network (`BACKEND_PROXY_TARGET`, proxied by Vite's dev server — see
+`frontend/vite.config.ts`) rather than a hard-coded `localhost:8000`, so
+the same `docker-compose.yml` also works unmodified in GitHub Codespaces,
+where the browser and the containers aren't on the same machine (see
+below).
+
+## Run in GitHub Codespaces
+
+No local install at all: open this repository on GitHub, click **Code →
+Codespaces → Create codespace on main**, and wait for it to build (a
+couple of minutes the first time). `.devcontainer/` reuses the same
+`docker-compose.yml` above — PostgreSQL, the backend, and the frontend all
+start automatically, migrations included. A preview of the frontend
+(port `5173`) opens automatically once it's ready; the backend
+(port `8000`) is forwarded too. Nothing needs to be run manually.
 
 ## Health Check
 

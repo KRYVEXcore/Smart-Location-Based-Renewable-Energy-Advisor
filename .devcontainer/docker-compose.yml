@@ -1,0 +1,12 @@
+services:
+  # A dedicated editor/shell container with the full repo mounted, so the
+  # Codespaces file explorer and terminal see the whole monorepo (frontend/,
+  # backend/, docs/) — unlike "backend" or "frontend" below, which each only
+  # have their own subtree mounted for hot-reload. This service does not run
+  # the app itself; "backend" and "frontend" (from the root docker-compose)
+  # do that, and start automatically alongside this one.
+  workspace:
+    image: mcr.microsoft.com/devcontainers/base:ubuntu-24.04
+    volumes:
+      - ..:/workspaces/renewable-energy-advisor:cached
+    command: sleep infinity

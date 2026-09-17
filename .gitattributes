@@ -1,0 +1,4 @@
+# Shell scripts run inside Linux containers (Docker/Codespaces) and must
+# keep LF line endings even when checked out on Windows (core.autocrlf
+# would otherwise convert them to CRLF, breaking the "#!/bin/sh" shebang).
+*.sh text eol=lf
