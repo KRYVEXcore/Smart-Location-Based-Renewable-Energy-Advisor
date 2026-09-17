@@ -7,11 +7,25 @@ needed.
 `types/location.ts` mirrors the backend's India location resolution
 (`district`, `IndiaLocationContext` with `state`/`union_territory`/
 `discom`/`discom_status`) and `types/assessment.ts` includes `college` as
-a `BuildingType` — both are additive type changes only. Tariff/incentive
-data has no UI yet (the backend schema is preparation for a future phase);
-once a real tariff/incentive engine exists, the UI must show an honest
-"not yet available" state rather than a fabricated number — never add a
-placeholder tariff or subsidy value to a card.
+a `BuildingType` — both are additive type changes only. Incentive data has
+no UI yet (the backend schema is preparation for a future phase); once a
+real incentive engine exists, the UI must show an honest "not yet
+available" state rather than a fabricated number — never add a placeholder
+subsidy value to a card.
+
+**Phase 5 — Electricity Tariff:** the Dashboard's "Electricity tariff"
+section (`components/tariff/ElectricityTariffSection.tsx`) shows the
+estimated baseline grid bill from `POST /api/v1/tariffs/calculate`, with
+each charge component (energy, fixed, wheeling, demand, time-of-day)
+labeled `included` / `not_included` / `not_calculated` — demand and
+time-of-day are always `not_calculated` since the assessment doesn't
+collect sanctioned load or interval consumption data. A location with no
+verified tariff data shows an honest "No verified electricity tariff is
+configured yet for this location" empty state, never a fabricated ₹0. It
+never shows a subsidy, solar cost, saving, or payback figure. The tariff
+fetch is sequenced after the location-intelligence fetch settles, the same
+as the solar fetch, so both only run once the shared location cache is
+warm.
 
 **Phase 4 — Solar Analysis:** the Dashboard's "Solar analysis" section
 (`components/solar/SolarAnalysisSection.tsx`) shows the technical solar

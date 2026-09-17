@@ -2,10 +2,15 @@ import enum
 
 
 class BuildingType(str, enum.Enum):
-    """Also used as the consumer category for tariff/incentive matching
-    (app.models.electricity_tariff, app.models.incentive_program) — kept as
-    one enum rather than a duplicate "ConsumerCategory" so a future engine
-    never needs a translation table between the two concepts.
+    """The app's own assessment classification.
+
+    Still used as-is by app.models.incentive_program (unchanged in Phase 5 —
+    a future Incentive Engine phase can revisit that separately). For
+    electricity tariffs, Phase 5 introduced TariffConsumerCategory below and
+    an explicit mapping (app.engines.tariff.consumer_category_mapping)
+    instead of reusing this enum directly: a building type and a real Indian
+    DISCOM tariff category are not automatically equivalent (e.g. a "school"
+    is billed as an educational-institution tariff, not a residential one).
     """
 
     HOME = "home"
@@ -14,6 +19,22 @@ class BuildingType(str, enum.Enum):
     OFFICE = "office"
     SHOP = "shop"
     SMALL_INSTITUTION = "small_institution"
+    OTHER = "other"
+
+
+class TariffConsumerCategory(str, enum.Enum):
+    """A real Indian electricity-tariff consumer category, as used by DISCOM
+    tariff orders — distinct from BuildingType (the app's own assessment
+    classification). See app.engines.tariff.consumer_category_mapping for
+    the explicit, testable mapping between the two.
+    """
+
+    RESIDENTIAL = "residential"
+    COMMERCIAL = "commercial"
+    EDUCATIONAL_INSTITUTION = "educational_institution"
+    PUBLIC_SERVICE = "public_service"
+    INDUSTRIAL = "industrial"
+    AGRICULTURE = "agriculture"
     OTHER = "other"
 
 

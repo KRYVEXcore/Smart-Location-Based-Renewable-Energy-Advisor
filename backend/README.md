@@ -1,11 +1,18 @@
 # Backend — India-Based Smart Location-Based Renewable Energy Advisor
 
 FastAPI + SQLAlchemy + PostgreSQL + Alembic. Serves India-based location,
-resource, tariff, and incentive data, and runs the India-Based Solar
-Engine — see the root README's
-[India-Based Tariff & Incentive Architecture](../README.md#india-based-tariff--incentive-architecture)
-and [Solar Engine (Phase 4)](../README.md#solar-engine-phase-4) sections
-for the data model and calculation architecture this backend implements.
+resource, tariff, and incentive data, and runs the India-Based Solar Engine
+and the India Electricity Tariff Engine — see the root README's
+[India-Based Tariff & Incentive Architecture](../README.md#india-based-tariff--incentive-architecture),
+[Solar Engine (Phase 4)](../README.md#solar-engine-phase-4), and
+[Electricity Tariff Engine (Phase 5)](../README.md#electricity-tariff-engine-phase-5)
+sections for the data model and calculation architecture this backend
+implements.
+
+`backend/app/data/tariffs/india/` holds verified tariff seed data (none
+yet — see its own README for the per-state investigation record) and
+`backend/scripts/seed_tariffs.py` loads it into `electricity_tariffs`;
+run with `python -m scripts.seed_tariffs` from `backend/`.
 
 ## Setup
 
@@ -61,6 +68,14 @@ POWER data. Multi-location verification against real Indian coordinates
 (Chennai, Mumbai, Jaipur, Bengaluru, Kochi, Coimbatore) was done manually
 against the running API, not as part of the automated suite.
 
+Tariff Engine tests (`test_tariff_consumer_category_mapping.py`,
+`test_tariff_slab_validation.py`, `test_tariff_slab_calculation.py`,
+`test_tariff_version_selection.py`, `test_tariff_bill_calculation.py`,
+`test_tariff_engine.py`, `test_tariff_api.py`) are likewise deterministic —
+the API tests use `tests/location_fakes.py`'s fake location service (with
+a real `IndiaLocationResolver` wired to the test database) so DISCOM
+resolution is exercised without a live geocoding call.
+
 ## Environment variables
 
 Copy [`../.env.example`](../.env.example) to `.env` inside this `backend/`
@@ -75,5 +90,6 @@ full architecture and directory layout, and
 [API Endpoints](../README.md#api-endpoints) /
 [Location Intelligence](../README.md#location-intelligence-phase-3) /
 [India-Based Tariff & Incentive Architecture](../README.md#india-based-tariff--incentive-architecture) /
-[Solar Engine (Phase 4)](../README.md#solar-engine-phase-4)
+[Solar Engine (Phase 4)](../README.md#solar-engine-phase-4) /
+[Electricity Tariff Engine (Phase 5)](../README.md#electricity-tariff-engine-phase-5)
 for the schema, API, and provider/calculation architecture.

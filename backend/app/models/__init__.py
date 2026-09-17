@@ -10,11 +10,13 @@ from app.models.enums import (
     IncentiveLevel,
     RenewableTechnology,
     SubsidyType,
+    TariffConsumerCategory,
 )
 from app.models.incentive_program import IncentiveProgram
 from app.models.location import Location
 from app.models.location_resource_snapshot import LocationResourceSnapshot
 from app.models.solar_calculation_snapshot import SolarCalculationSnapshot
+from app.models.tariff_calculation_snapshot import TariffCalculationSnapshot
 from app.models.user import User
 
 __all__ = [
@@ -33,5 +35,7 @@ __all__ = [
     "RenewableTechnology",
     "SolarCalculationSnapshot",
     "SubsidyType",
+    "TariffCalculationSnapshot",
+    "TariffConsumerCategory",
     "User",
 ]

@@ -10,7 +10,7 @@ from datetime import date
 
 from app.models.discom import Discom
 from app.models.electricity_tariff import ElectricityTariff
-from app.models.enums import BuildingType, IncentiveLevel, RenewableTechnology, SubsidyType
+from app.models.enums import BuildingType, IncentiveLevel, RenewableTechnology, SubsidyType, TariffConsumerCategory
 from app.models.incentive_program import IncentiveProgram
 
 
@@ -22,16 +22,19 @@ def test_electricity_tariff_stores_all_required_fields(db_session):
     tariff = ElectricityTariff(
         state="Tamil Nadu",
         discom_id=discom.id,
-        consumer_category=BuildingType.HOME,
+        consumer_category=TariffConsumerCategory.RESIDENTIAL,
+        tariff_version="TEST-TN-2026.1",
         tariff_name="TEST Domestic Tariff Slab 1",
         slab_min_kwh=0,
         slab_max_kwh=100,
         energy_charge_inr_per_kwh=3.5,
         fixed_charge_inr=50,
+        wheeling_charge_inr_per_kwh=None,
         effective_from=date(2026, 1, 1),
         effective_to=None,
         source_url="https://example.invalid/test-tariff-order",
         source_document="TEST fixture — not a real tariff order",
+        source_name="TEST fixture regulatory commission",
         last_verified=date(2026, 1, 1),
         active=True,
     )
@@ -41,7 +44,8 @@ def test_electricity_tariff_stores_all_required_fields(db_session):
     fetched = db_session.get(ElectricityTariff, tariff.id)
     assert fetched.state == "Tamil Nadu"
     assert fetched.discom_id == discom.id
-    assert fetched.consumer_category == BuildingType.HOME
+    assert fetched.consumer_category == TariffConsumerCategory.RESIDENTIAL
+    assert fetched.tariff_version == "TEST-TN-2026.1"
     assert float(fetched.energy_charge_inr_per_kwh) == 3.5
     assert fetched.effective_to is None
     assert fetched.active is True
@@ -51,8 +55,10 @@ def test_electricity_tariff_supports_union_territory_instead_of_state(db_session
     tariff = ElectricityTariff(
         union_territory="Delhi",
         state=None,
-        consumer_category=BuildingType.OFFICE,
+        consumer_category=TariffConsumerCategory.COMMERCIAL,
+        tariff_version="TEST-DL-2026.1",
         tariff_name="TEST UT Commercial Tariff",
+        slab_min_kwh=0,
         energy_charge_inr_per_kwh=7.0,
         effective_from=date(2026, 1, 1),
         active=True,
@@ -65,11 +71,13 @@ def test_electricity_tariff_supports_union_territory_instead_of_state(db_session
     assert fetched.state is None
 
 
-def test_electricity_tariff_college_consumer_category(db_session):
+def test_electricity_tariff_educational_institution_consumer_category(db_session):
     tariff = ElectricityTariff(
         state="Karnataka",
-        consumer_category=BuildingType.COLLEGE,
-        tariff_name="TEST College Tariff",
+        consumer_category=TariffConsumerCategory.EDUCATIONAL_INSTITUTION,
+        tariff_version="TEST-KA-EDU-2026.1",
+        tariff_name="TEST Educational Institution Tariff",
+        slab_min_kwh=0,
         energy_charge_inr_per_kwh=6.2,
         effective_from=date(2026, 1, 1),
         active=True,
@@ -77,7 +85,10 @@ def test_electricity_tariff_college_consumer_category(db_session):
     db_session.add(tariff)
     db_session.commit()
 
-    assert db_session.get(ElectricityTariff, tariff.id).consumer_category == BuildingType.COLLEGE
+    assert (
+        db_session.get(ElectricityTariff, tariff.id).consumer_category
+        == TariffConsumerCategory.EDUCATIONAL_INSTITUTION
+    )
 
 
 def test_incentive_program_represents_central_scheme(db_session):

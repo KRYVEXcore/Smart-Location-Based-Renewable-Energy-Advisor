@@ -281,20 +281,30 @@ SolarCalculationSnapshot (assessment_id, calculation_version, assumption_version
 Discom (id, name, short_code, state, union_territory, is_active)
 
 ElectricityTariff (state, union_territory, discom_id, consumer_category,
-                    tariff_name, slab_min_kwh, slab_max_kwh,
+                    tariff_version, tariff_name, slab_min_kwh, slab_max_kwh,
                     energy_charge_inr_per_kwh, fixed_charge_inr, demand_charge_inr,
-                    effective_from, effective_to, source_url, source_document,
-                    last_verified, active)
+                    wheeling_charge_inr_per_kwh, effective_from, effective_to,
+                    source_url, source_document, source_name, last_verified, active)
 
 IncentiveProgram (scheme_name, level, state, union_territory, discom_id,
                    consumer_category, technology, min_system_size_kw, max_system_size_kw,
                    subsidy_type, subsidy_value, percentage_value, maximum_amount,
                    eligibility_rules, effective_from, effective_to, source_url,
                    source_document, last_verified, active)
+
+TariffCalculationSnapshot (assessment_id, calculation_version,
+                            input_snapshot, result_snapshot, created_at)
 ```
 
-- `building_type` (also used as `consumer_category` on tariffs/incentives):
-  `home` | `school` | `college` | `office` | `shop` | `small_institution` | `other`
+- `building_type` (the app's own assessment classification):
+  `home` | `school` | `college` | `office` | `shop` | `small_institution` | `other`.
+  Still used directly as `IncentiveProgram.consumer_category` (unchanged in
+  Phase 5). `ElectricityTariff.consumer_category` instead uses the separate
+  `TariffConsumerCategory` enum below — see
+  [Electricity Tariff Engine (Phase 5)](#electricity-tariff-engine-phase-5).
+- `consumer_category` on `ElectricityTariff` (`TariffConsumerCategory`):
+  `residential` | `commercial` | `educational_institution` | `public_service` |
+  `industrial` | `agriculture` | `other`
 - `status`: `draft` | `submitted` | `completed` — Phase 2 always saves `submitted`
 - `User` has no authentication yet. Every request is attributed to a single
   deterministic prototype user (`app/services/prototype_user.py`) — see the
@@ -318,6 +328,10 @@ IncentiveProgram (scheme_name, level, state, union_territory, discom_id,
   versions that produced it — see
   [Solar Engine (Phase 4)](#solar-engine-phase-4) below. Deleting an
   assessment cascades to its snapshots (`ON DELETE CASCADE`).
+- `TariffCalculationSnapshot` is the same write-through audit pattern for
+  Phase 5's tariff calculations (`ON DELETE CASCADE` from day one — see the
+  Phase 4 fix note in [Security Notes](#security-notes-phases-2-5) for why
+  that matters).
 
 ## API Endpoints
 
@@ -334,6 +348,8 @@ All under `API_V1_PREFIX` (`/api/v1`):
 | GET    | `/locations/search`     | Geocode a place name (`?q=...`)          |
 | GET    | `/locations/profile`    | Normalized solar/wind/weather/elevation data, plus India location resolution (state/UT/district/city/DISCOM), for a coordinate (`?latitude=...&longitude=...`) |
 | POST   | `/solar/calculate`      | Technical solar system options for an assessment (`{"assessment_id": "..."}`) |
+| POST   | `/tariffs/calculate`    | Estimated baseline electricity bill for an assessment (`{"assessment_id": "...", "calculation_date": "YYYY-MM-DD"}`, date optional) |
+| GET    | `/tariffs`              | Filtered tariff slab lookup (`?state=...&union_territory=...&consumer_category=...&discom_id=...`) |
 
 Example `POST /api/v1/assessments` payload:
 
@@ -467,10 +483,13 @@ latitude/longitude -> state or union territory -> district -> city -> DISCOM
 
 ## India-Based Tariff & Incentive Architecture
 
-Prepares the data model the future India-Based Solar Engine (Phase 4) and
-Financial Engine will read from — **no calculation engine exists yet**, and
-**no production tariff or subsidy rows are seeded**. This section is
-data-model preparation, not a working tariff/incentive resolver.
+Prepared the data model the India-Based Solar Engine (Phase 4) and the
+India Electricity Tariff Engine (Phase 5, below) read from. **The tariff
+side now has a working calculation engine** (see
+[Electricity Tariff Engine (Phase 5)](#electricity-tariff-engine-phase-5));
+the incentive side is still schema-only — **no incentive calculation engine
+exists yet, and no production tariff or subsidy rows are seeded** (see that
+section's honest-data-coverage note for why).
 
 ```
 LOCATION INTELLIGENCE  ------->  India Location Resolver
@@ -495,14 +514,16 @@ deterministic formulas.** No layer invents a value that belongs to another.
 
 One row per tariff slab (a real tariff order typically has several, e.g.
 0–100 kWh, 101–300 kWh, ...): `state` / `union_territory`, `discom_id`
-(nullable FK to `Discom`), `consumer_category` (the same `BuildingType`
-enum used by assessments — home/school/**college**/office/shop/
-small_institution/other), `tariff_name`, `slab_min_kwh`/`slab_max_kwh`,
-`energy_charge_inr_per_kwh`, `fixed_charge_inr`, `demand_charge_inr`,
+(nullable FK to `Discom`), `consumer_category` (`TariffConsumerCategory` —
+a real Indian DISCOM tariff category, distinct from `BuildingType`; see
+[Electricity Tariff Engine (Phase 5)](#electricity-tariff-engine-phase-5)),
+`tariff_version` (groups the slab rows of one published schedule),
+`tariff_name`, `slab_min_kwh`/`slab_max_kwh`, `energy_charge_inr_per_kwh`,
+`fixed_charge_inr`, `demand_charge_inr`, `wheeling_charge_inr_per_kwh`,
 plus the versioning/source fields below. The table is empty in production;
 only `tests/test_tariff_and_incentive_models.py`'s clearly-named `TEST-*`
-fixtures ever populate it. **No tariff calculation/resolution engine is
-implemented yet** — that's future work once real tariff orders are loaded.
+fixtures ever populate it — see the Phase 5 section for why no state's real
+data has been seeded yet.
 
 ### Incentive architecture (`app/models/incentive_program.py`)
 
@@ -663,7 +684,160 @@ engine is a pure function and returns identical `options` and
 `annual_consumption_kwh` — verified directly (`test_solar_engine.py`) and
 live against the real API.
 
-## Security Notes (Phases 2-4)
+## Electricity Tariff Engine (Phase 5)
+
+**Phase 5 estimates a baseline grid-electricity bill from an assessment's
+existing consumption and location data. It does NOT calculate subsidies,
+solar cost, payback, ROI, or savings** — those remain later-phase
+boundaries (see [Financial boundary](#tariff-financial-boundary) below).
+
+```
+Assessment (energy.monthly_consumption_kwh, building.building_type)
+        v
+Phase 3 LocationService.get_profile() -> IndiaLocationContext
+        (state/UT, DISCOM, discom_status — never re-derived)
+        v
+BuildingType -> TariffConsumerCategory (explicit mapping, never assumed equal)
+        v
+TariffRepository (state/UT + DISCOM + category candidates)
+        v
+Tariff Engine (app/engines/tariff/ — pure functions, no FastAPI/DB/API import)
+   - select the tariff_version covering the calculation date
+   - cumulative/progressive slab calculation (Decimal, never float)
+   - charge components: energy, fixed, demand, wheeling, time-of-day
+        v
+Estimated baseline bill + per-component included/not_included/not_calculated status
+```
+
+`app/engines/tariff/` never imports FastAPI, SQLAlchemy, or an HTTP client
+— the same rule as `app/engines/solar/`. `TariffCalculationService`
+(`app/services/tariff_calculation_service.py`) is the only bridge: it loads
+the Assessment, calls the existing Phase 3 `LocationService.get_profile()`
+(the tariff engine never re-runs geocoding or DISCOM resolution itself),
+maps `BuildingType` to `TariffConsumerCategory`, queries candidate tariff
+rows, and hands the engine a plain list of slab DTOs.
+
+### Consumer category mapping (`app/engines/tariff/consumer_category_mapping.py`)
+
+A real DISCOM tariff category is not the same thing as the app's
+`BuildingType`, so the two are never treated as interchangeable. The
+mapping is one explicit, testable dict:
+
+| BuildingType | TariffConsumerCategory |
+| --- | --- |
+| `home` | `residential` |
+| `school`, `college` | `educational_institution` |
+| `office`, `shop` | `commercial` |
+| `small_institution` | `public_service` |
+| `other` | `other` |
+
+### DISCOM scoping
+
+Never guesses which DISCOM's tariff applies:
+
+- `discom_status: "identified"` — prefers that exact DISCOM's tariff rows;
+  falls back to a state-level tariff (`discom_id IS NULL`) only if that
+  DISCOM has none configured.
+- `discom_status: "ambiguous"` or `"not_identified"` — only a state-level
+  tariff (no specific DISCOM) may be used; a DISCOM-specific tariff is
+  never guessed. If no state-level tariff exists either, the response is
+  `discom_ambiguous` (ambiguous case) or `tariff_not_configured`.
+
+### Slab calculation (`app/engines/tariff/slab_calculation.py`)
+
+Cumulative/progressive ("telescoping") billing using `Decimal` throughout
+— never `float` — for exact money math. Each slab covers
+`[slab_min_kwh, slab_max_kwh)`; the final slab's `slab_max_kwh` is `None`
+and extends indefinitely. Consumption landing exactly on a boundary is
+billed entirely within the lower slab. `app/engines/tariff/validation.py`
+rejects (raises `ValueError`, never silently "fixes") slabs that are
+empty, negative, overlapping, non-contiguous, don't start at 0, or have
+more than one unlimited slab — a malformed tariff dataset must never
+silently produce a wrong number.
+
+### Tariff version selection (`app/engines/tariff/version_selection.py`)
+
+A state/DISCOM/category can have multiple `tariff_version` schedules on
+file over time (superseded orders kept for reproducibility). Exactly one
+is selected for the requested `calculation_date`: the version whose
+`[effective_from, effective_to]` range covers that date, preferring the
+latest `effective_from`, with ties broken by the version string itself —
+deterministic, never random, never dependent on database row order.
+
+### Charge components
+
+Each component is reported as `included` (with an amount), `not_included`
+(the tariff data itself has no such charge), or `not_calculated` (this app
+doesn't collect the input needed) — never fabricated as zero:
+
+| Component | When `included` | When `not_calculated` |
+| --- | --- | --- |
+| `energy` | Always (the slab calculation) | — |
+| `fixed` | `fixed_charge_inr` is configured on the tariff | — |
+| `wheeling` | `wheeling_charge_inr_per_kwh` is configured | — |
+| `demand` | — | Always — requires sanctioned load/kVA, which this app's assessment does not collect |
+| `tod` (time-of-day) | — | Always — requires interval consumption data, which this app's assessment does not collect |
+
+`estimated_monthly_bill_inr` sums only the `included` components;
+`is_partial_estimate` and `excluded_components` make it explicit whenever
+`demand`/`tod` were skipped (i.e. always, today).
+
+<a id="tariff-financial-boundary"></a>
+
+### Financial boundary
+
+The response contains no subsidy, solar cost, saving, payback, ROI, or
+recommendation field. `app.engines.tariff.calculate_bill_for_grid_consumption`
+is written to be reusable by a future engine that needs a grid-only bill
+estimate (e.g. comparing grid cost against a solar-offset scenario)
+without recomputing tariff resolution — but Phase 5 itself never performs
+that comparison.
+
+### API
+
+`POST /api/v1/tariffs/calculate` — `{"assessment_id": "...", "calculation_date": "YYYY-MM-DD"}`
+(date optional, defaults to today). Response `status` is one of:
+
+- `ok` — a tariff was found and a bill was calculated (possibly partial —
+  see `is_partial_estimate`)
+- `insufficient_data` — no coordinates, or the location couldn't be
+  resolved to an Indian state/UT
+- `discom_ambiguous` — multiple DISCOMs match and no state-level fallback
+  tariff is configured
+- `tariff_not_configured` — the state/category/date is understood, but no
+  verified tariff data exists for it
+
+`GET /api/v1/tariffs?state=...&union_territory=...&consumer_category=...&discom_id=...`
+— a filtered raw-slab lookup for browsing/debugging what's configured.
+
+### India tariff data coverage
+
+Per this project's standing rule — **prefer NO DATA over FAKE DATA** — a
+state is only seeded once its slabs, rates, and charges are confirmed from
+an actual official source (a state Electricity Regulatory Commission, an
+official DISCOM page, or an official tariff order/notification). Tamil
+Nadu, Maharashtra, Karnataka, Kerala, and Rajasthan were investigated for
+this phase; in every case a real official source was located, but this
+phase's tooling could not extract a complete, exact slab table from it
+with enough confidence to store as authoritative data (see
+[`backend/app/data/tariffs/india/README.md`](backend/app/data/tariffs/india/README.md)
+for the full per-state record, including the sources found). **All five
+remain unconfigured** — `POST /api/v1/tariffs/calculate` correctly returns
+`tariff_not_configured` for them today. The seed-loading mechanism
+(`backend/scripts/seed_tariffs.py`) and file format are ready for real data
+to be added once someone can verify it directly against a primary
+document.
+
+### Reproducibility
+
+Given the same input, candidate rows, and `calculation_date`, the engine
+is a pure function and returns identical charges and totals — verified
+directly (`test_tariff_engine.py`) and live against the real API. Every
+calculation is also recorded to `TariffCalculationSnapshot`
+(`ON DELETE CASCADE` on the owning assessment, same pattern as
+`SolarCalculationSnapshot`).
+
+## Security Notes (Phases 2-5)
 
 - No authentication yet. `app/services/prototype_user.py` centralizes a
   single well-known prototype user id so no user id is hard-coded elsewhere
@@ -683,7 +857,7 @@ live against the real API.
 
 ## Current Development Phase
 
-**CURRENT PHASE: Phase 4 — India-Based Solar Engine, complete**
+**CURRENT PHASE: Phase 5 — India Electricity Tariff Engine, complete**
 
 Phase 1 established the monorepo, frontend UI, and backend foundation.
 Phase 2 turned the assessment UI into a real backend-backed system with
@@ -696,14 +870,19 @@ update between Phase 3 and Phase 4 added India location resolution
 [India location resolution](#india-location-resolution)) and the
 tariff/incentive schema (see
 [India-Based Tariff & Incentive Architecture](#india-based-tariff--incentive-architecture)).
+Phase 4 estimated technical solar generation and system feasibility for an
+assessment (see [Solar Engine (Phase 4)](#solar-engine-phase-4)).
 
-**Phase 4 estimates technical solar generation and system feasibility for
-an assessment, using the assessment's own India-based location and
-resource data (see [Solar Engine (Phase 4)](#solar-engine-phase-4)). It
-does NOT determine a final recommendation, subsidy, tariff-based savings,
-payback, or final purchase price** — no wind/hybrid/battery calculation,
-recommendation engine, financial engine, AI, voice, or ML is implemented
-yet.
+**Phase 5 estimates a baseline grid-electricity bill for an assessment,
+using its existing consumption and India-based location/DISCOM data (see
+[Electricity Tariff Engine (Phase 5)](#electricity-tariff-engine-phase-5)).
+It does NOT calculate subsidies, solar cost, payback, ROI, or savings** —
+and, per this project's own investigation record, **no state's tariff
+schedule has yet been confidently verified from an official source**, so
+every location currently reports `tariff_not_configured` in practice (the
+architecture is complete and tested; the data is honestly absent). No
+incentive engine, wind/hybrid/battery calculation, recommendation engine,
+financial engine, AI, voice, or ML is implemented yet.
 
 ## Future Roadmap
 
@@ -712,7 +891,7 @@ yet.
 - Phase 3 — Location Intelligence
 - *(India-based architecture update — DISCOM/tariff/incentive data model)*
 - Phase 4 — India-Based Solar Engine ✅
-- Phase 5 — India Electricity Tariff Engine
+- Phase 5 — India Electricity Tariff Engine ✅
 - Phase 6 — Incentive Engine
 - Phase 7 — Wind Engine
 - Phase 8 — Hybrid + Battery
