@@ -248,6 +248,12 @@ export function LocationStep({ value, onChange }: LocationStepProps) {
           value={value.locationQuery}
           onChange={(event) => {
             setIsDropdownOpen(true)
+            // Typing is a fresh attempt — a stale message from an earlier
+            // GPS/search failure (e.g. "location access was denied") must
+            // not keep stacking alongside whatever happens next.
+            setResolution('idle')
+            setResolutionError(null)
+            resetGeo()
             onChange({ locationQuery: event.target.value, latitude: null, longitude: null })
           }}
           onFocus={() => setIsDropdownOpen(true)}

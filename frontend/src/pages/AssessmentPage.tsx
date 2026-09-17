@@ -70,6 +70,19 @@ export function AssessmentPage() {
     goNext()
   }
 
+  // A field error is a snapshot from the last failed submission — once the
+  // user edits that field, showing the old message (and the generic banner
+  // that came with it) would be actively misleading, since it may already
+  // be fixed.
+  function clearFieldErrors(keys: (keyof FieldErrors)[]) {
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      for (const key of keys) delete next[key]
+      return next
+    })
+    setSubmitError(null)
+  }
+
   async function handleSubmit() {
     if (!data.buildingType) {
       setSubmitError('Please go back and select a building type.')
@@ -121,26 +134,40 @@ export function AssessmentPage() {
               locationState: data.locationState,
               locationCountry: data.locationCountry,
             }}
-            onChange={updateFields}
+            onChange={(patch) => {
+              clearFieldErrors(['location'])
+              updateFields(patch)
+            }}
           />
         )}
         {step === 2 && (
           <BuildingTypeStep
             value={data.buildingType}
-            onChange={(value) => updateField('buildingType', value)}
+            onChange={(value) => {
+              clearFieldErrors(['buildingType'])
+              updateField('buildingType', value)
+            }}
           />
         )}
         {step === 3 && (
           <ConsumptionStep
             value={data.monthlyConsumptionKwh}
-            onChange={(value) => updateField('monthlyConsumptionKwh', value)}
+            onChange={(value) => {
+              clearFieldErrors(['consumption'])
+              updateField('monthlyConsumptionKwh', value)
+            }}
             error={fieldErrors.consumption}
           />
         )}
         {step === 4 && (
           <ConstraintsStep
             value={data}
-            onChange={updateFields}
+            onChange={(patch) => {
+              clearFieldErrors(
+                (['roofAreaSqft', 'landAreaSqft', 'budget'] as const).filter((key) => key in patch),
+              )
+              updateFields(patch)
+            }}
             errors={{
               roofAreaSqft: fieldErrors.roofAreaSqft,
               landAreaSqft: fieldErrors.landAreaSqft,
