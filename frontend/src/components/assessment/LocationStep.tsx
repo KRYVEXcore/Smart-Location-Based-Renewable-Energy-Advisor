@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Loader2, LocateFixed, MapPin, Search, X } 
 import { useGeolocation } from '../../hooks/useGeolocation'
 import { useLocationSearch } from '../../hooks/useLocationSearch'
 import { getLocationProfile } from '../../services/locationService'
+import { ApiError, NetworkError } from '../../services/apiClient'
 import { LocationSearchResults } from '../location/LocationSearchResults'
 import type { GeocodingCandidate } from '../../types/location'
 
@@ -75,9 +76,15 @@ export function LocationStep({ value, onChange }: LocationStepProps) {
         country: country ?? 'India',
       })
       setResolution('confirming')
-    } catch {
+    } catch (err) {
       setResolution('error')
-      setResolutionError('Could not resolve this location right now. Try again or search manually.')
+      if (err instanceof NetworkError) {
+        setResolutionError('Could not connect to the server. Check your connection and try again.')
+      } else if (err instanceof ApiError && err.status >= 500) {
+        setResolutionError('Something went wrong while resolving this location. Please try again.')
+      } else {
+        setResolutionError('Could not resolve this location right now. Try again or search manually.')
+      }
     }
   }
 
