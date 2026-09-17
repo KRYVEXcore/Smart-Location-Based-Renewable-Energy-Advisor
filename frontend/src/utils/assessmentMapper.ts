@@ -2,7 +2,9 @@ import type { AssessmentData, BuildingType } from '../types/assessment'
 import type { AssessmentCreatePayload } from '../types/assessmentApi'
 
 function toNullableNumber(value: string): number | null {
-  return value.trim() === '' ? null : Number(value)
+  if (value.trim() === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 export function toAssessmentCreatePayload(data: AssessmentData): AssessmentCreatePayload {
@@ -15,9 +17,9 @@ export function toAssessmentCreatePayload(data: AssessmentData): AssessmentCreat
       latitude: data.latitude,
       longitude: data.longitude,
       formatted_address: data.locationQuery.trim() === '' ? null : data.locationQuery,
-      city: null,
-      state: null,
-      country: null,
+      city: data.locationCity,
+      state: data.locationState,
+      country: data.locationCountry,
       postal_code: null,
     },
     energy: {

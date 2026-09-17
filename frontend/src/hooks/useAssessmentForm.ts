@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { INITIAL_ASSESSMENT_DATA, type AssessmentData } from '../types/assessment'
 
-export const TOTAL_STEPS = 4
+export const TOTAL_STEPS = 5
 
 export function useAssessmentForm() {
   const [step, setStep] = useState(1)
@@ -15,7 +15,15 @@ export function useAssessmentForm() {
     setData((prev) => ({ ...prev, ...patch }))
   }
 
-  const canContinue = step === 2 ? data.buildingType !== null : true
+  // Step 1 requires an actual confirmed coordinate, not just typed text —
+  // a location "label" with no usable latitude/longitude would silently
+  // reach later steps with nothing for Phase 3+ to resolve.
+  const canContinue =
+    step === 1
+      ? data.latitude !== null && data.longitude !== null
+      : step === 2
+        ? data.buildingType !== null
+        : true
 
   function goNext() {
     if (canContinue) setStep((prev) => Math.min(prev + 1, TOTAL_STEPS))
@@ -25,5 +33,9 @@ export function useAssessmentForm() {
     setStep((prev) => Math.max(prev - 1, 1))
   }
 
-  return { step, data, updateField, updateFields, canContinue, goNext, goBack }
+  function goToStep(target: number) {
+    setStep(Math.min(Math.max(target, 1), TOTAL_STEPS))
+  }
+
+  return { step, data, updateField, updateFields, canContinue, goNext, goBack, goToStep }
 }

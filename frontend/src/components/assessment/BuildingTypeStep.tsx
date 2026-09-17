@@ -1,13 +1,15 @@
-import { Building2, GraduationCap, Home, Landmark, Store } from 'lucide-react'
+import { Building2, GraduationCap, Home, Landmark, MoreHorizontal, School, Store } from 'lucide-react'
 import { SelectableCard } from '../cards/SelectableCard'
 import type { BuildingType } from '../../types/assessment'
 
 const OPTIONS: { value: BuildingType; label: string; icon: typeof Home }[] = [
   { value: 'home', label: 'Home', icon: Home },
-  { value: 'school', label: 'School', icon: GraduationCap },
+  { value: 'school', label: 'School', icon: School },
+  { value: 'college', label: 'College', icon: GraduationCap },
   { value: 'office', label: 'Office', icon: Building2 },
   { value: 'shop', label: 'Shop', icon: Store },
   { value: 'small_institution', label: 'Small Institution', icon: Landmark },
+  { value: 'other', label: 'Other', icon: MoreHorizontal },
 ]
 
 interface BuildingTypeStepProps {
