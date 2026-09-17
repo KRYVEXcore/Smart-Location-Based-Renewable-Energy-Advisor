@@ -1,9 +1,11 @@
 # Backend — India-Based Smart Location-Based Renewable Energy Advisor
 
 FastAPI + SQLAlchemy + PostgreSQL + Alembic. Serves India-based location,
-resource, tariff, and incentive data — see the root README's
+resource, tariff, and incentive data, and runs the India-Based Solar
+Engine — see the root README's
 [India-Based Tariff & Incentive Architecture](../README.md#india-based-tariff--incentive-architecture)
-section for the data model this backend implements.
+and [Solar Engine (Phase 4)](../README.md#solar-engine-phase-4) sections
+for the data model and calculation architecture this backend implements.
 
 ## Setup
 
@@ -52,6 +54,13 @@ India location resolution tests (`test_india_geography.py`,
 that same isolated SQLite database — never real tariff, subsidy, or DISCOM
 data, and never the production PostgreSQL database.
 
+Solar Engine tests (`test_solar_generation.py`, `test_solar_sizing.py`,
+`test_solar_validation.py`, `test_solar_engine.py`, `test_solar_api.py`)
+are deterministic unit/fixture tests — no live network call, no real NASA
+POWER data. Multi-location verification against real Indian coordinates
+(Chennai, Mumbai, Jaipur, Bengaluru, Kochi, Coimbatore) was done manually
+against the running API, not as part of the automated suite.
+
 ## Environment variables
 
 Copy [`../.env.example`](../.env.example) to `.env` inside this `backend/`
@@ -65,5 +74,6 @@ full architecture and directory layout, and
 [Database Models](../README.md#database-models) /
 [API Endpoints](../README.md#api-endpoints) /
 [Location Intelligence](../README.md#location-intelligence-phase-3) /
-[India-Based Tariff & Incentive Architecture](../README.md#india-based-tariff--incentive-architecture)
-for the schema, API, and provider architecture.
+[India-Based Tariff & Incentive Architecture](../README.md#india-based-tariff--incentive-architecture) /
+[Solar Engine (Phase 4)](../README.md#solar-engine-phase-4)
+for the schema, API, and provider/calculation architecture.

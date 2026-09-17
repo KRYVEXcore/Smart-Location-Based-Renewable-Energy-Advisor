@@ -17,9 +17,11 @@ import { Section } from '../components/layout/Section'
 import { MetricCard } from '../components/metrics/MetricCard'
 import { ComparisonCard } from '../components/cards/ComparisonCard'
 import { LocationIntelligenceSection } from '../components/location/LocationIntelligenceSection'
+import { SolarAnalysisSection } from '../components/solar/SolarAnalysisSection'
 import { getAssessment } from '../services/assessmentService'
 import { ApiError } from '../services/apiClient'
 import { useLocationProfile } from '../hooks/useLocationProfile'
+import { useSolarCalculation } from '../hooks/useSolarCalculation'
 import type { AssessmentResponse } from '../types/assessmentApi'
 
 const COMPARISON_TECHNOLOGIES = [
@@ -43,6 +45,7 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
   const [loadState, setLoadState] = useState<LoadState>(assessmentId ? 'loading' : 'empty')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const { profile, status: profileStatus, fetchProfile } = useLocationProfile()
+  const { result: solarResult, status: solarStatus, runCalculation } = useSolarCalculation()
 
   useEffect(() => {
     if (!assessmentId) return
@@ -75,6 +78,21 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
       fetchProfile(assessment.location.latitude, assessment.location.longitude)
     }
   }, [assessment, fetchProfile])
+
+  useEffect(() => {
+    // Waits for the location-intelligence fetch above to settle first. Both
+    // effects would otherwise race the same backend location cache with two
+    // concurrent, independent provider calls for the same coordinate — for a
+    // flaky upstream provider that can return a successful result to one and
+    // a transient failure to the other, showing contradictory data in the
+    // same page. Sequencing also avoids a redundant external API call.
+    const hasCoordinates = assessment?.location.latitude != null && assessment.location.longitude != null
+    const locationSettled = !hasCoordinates || profileStatus === 'ready' || profileStatus === 'error'
+
+    if (assessment && locationSettled) {
+      runCalculation(assessment.id)
+    }
+  }, [assessment, profileStatus, runCalculation])
 
   if (loadState === 'empty') {
     return (
@@ -140,7 +158,7 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
           value={assessment.energy.monthly_consumption_kwh.toString()}
           unit="kWh"
         />
-        <MetricCard icon={Zap} label="Recommended capacity" pendingLabel="Awaiting sizing engine" />
+        <MetricCard icon={Zap} label="Recommended capacity" pendingLabel="Awaiting recommendation engine" />
         <MetricCard icon={PiggyBank} label="Estimated savings" pendingLabel="Awaiting financial engine" />
         <MetricCard icon={TrendingUp} label="Payback period" pendingLabel="Awaiting financial engine" />
       </div>
@@ -171,6 +189,30 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
       {hasCoordinates && profile && (
         <div className="mt-5">
           <LocationIntelligenceSection profile={profile} />
+        </div>
+      )}
+
+      <h2 className="mt-12 text-xl font-bold text-slate-900">Solar analysis</h2>
+      {!hasCoordinates && (
+        <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
+          This assessment doesn&apos;t have saved coordinates, so solar analysis can&apos;t be
+          calculated automatically.
+        </div>
+      )}
+      {hasCoordinates && solarStatus === 'loading' && (
+        <div className="mt-5 flex items-center gap-2 text-sm text-slate-500">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          Calculating solar system options…
+        </div>
+      )}
+      {hasCoordinates && solarStatus === 'error' && (
+        <p className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          Solar analysis is unavailable right now. Please check your internet connection.
+        </p>
+      )}
+      {hasCoordinates && solarResult && (
+        <div className="mt-5">
+          <SolarAnalysisSection result={solarResult} />
         </div>
       )}
 

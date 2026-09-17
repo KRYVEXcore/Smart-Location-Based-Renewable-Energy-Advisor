@@ -1,1 +1,3 @@
-"""Solar PV sizing and generation calculations will be implemented in Phase 4."""
+from app.engines.solar.solar_engine import calculate
+
+__all__ = ["calculate"]

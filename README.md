@@ -70,6 +70,7 @@ renewable-energy-advisor/
 │   │   │   ├── metrics/               MetricCard (value + empty/pending states)
 │   │   │   ├── assessment/             Multi-step assessment form pieces
 │   │   │   ├── location/                Map, search dropdown, resource cards (Phase 3)
+│   │   │   ├── solar/                     SolarOptionCard, SolarAnalysisSection (Phase 4)
 │   │   │   ├── advisor/                   AI advisor UI shell (panel, floating button)
 │   │   │   ├── visualizations/             Hero illustration
 │   │   │   └── layout/                      Section, Footer
@@ -92,22 +93,27 @@ renewable-energy-advisor/
 │   │   │   ├── connection.py          SQLAlchemy engine, session factory, Base
 │   │   │   └── repositories/            assessment_repository.py,
 │   │   │                                  location_resource_snapshot_repository.py,
+│   │   │                                  solar_calculation_snapshot_repository.py,
 │   │   │                                  discom_repository.py
 │   │   ├── models/                   User, Building, Location, EnergyProfile,
 │   │   │                                BuildingConstraints, Assessment,
 │   │   │                                LocationResourceSnapshot, Discom,
-│   │   │                                ElectricityTariff, IncentiveProgram, enums.py
-│   │   ├── schemas/                   assessment.py, location.py
+│   │   │                                ElectricityTariff, IncentiveProgram,
+│   │   │                                SolarCalculationSnapshot, enums.py
+│   │   ├── schemas/                   assessment.py, location.py, solar.py
 │   │   ├── services/
 │   │   │   ├── assessment_service.py    Assessment persistence orchestration
 │   │   │   ├── prototype_user.py         Centralized prototype-user resolution
+│   │   │   ├── solar_calculation_service.py  Assessment + LocationProfile -> Solar Engine (Phase 4)
+│   │   │   ├── solar_dependencies.py      FastAPI wiring for the above
 │   │   │   ├── location/                  LocationService, cache, provider_factory,
 │   │   │   │                                dependencies.py, providers/ (Phase 3),
 │   │   │   │                                india_resolver.py (India architecture update)
 │   │   │   ├── ai/                        AIAdvisorService interface (Phase 10)
 │   │   │   └── voice/                      Speech-to-text / text-to-speech / voice advisor interfaces (Phase 11)
 │   │   ├── engines/
-│   │   │   ├── solar/                   Phase 4
+│   │   │   ├── solar/                   assumptions.py, generation.py, sizing.py,
+│   │   │   │                              validation.py, solar_engine.py (Phase 4 — done)
 │   │   │   ├── wind/                     Phase 5
 │   │   │   ├── hybrid/                    Phase 6
 │   │   │   ├── financial/                  Phase 8
@@ -269,6 +275,9 @@ User (id, created_at)
 
 LocationResourceSnapshot (latitude, longitude, resource_type, provider, payload, retrieved_at)
 
+SolarCalculationSnapshot (assessment_id, calculation_version, assumption_version,
+                           input_snapshot, result_snapshot, created_at)
+
 Discom (id, name, short_code, state, union_territory, is_active)
 
 ElectricityTariff (state, union_territory, discom_id, consumer_category,
@@ -303,6 +312,12 @@ IncentiveProgram (scheme_name, level, state, union_territory, discom_id,
   below. **No production rows are seeded in any of the three** — populating
   real tariff orders and scheme data, and the engine that resolves a user's
   exact tariff/incentives, are future work.
+- `SolarCalculationSnapshot` is a Phase 4 write-through audit log (same
+  pattern as `LocationResourceSnapshot`) recording the exact input and
+  result of every solar calculation, tagged with the engine/assumption
+  versions that produced it — see
+  [Solar Engine (Phase 4)](#solar-engine-phase-4) below. Deleting an
+  assessment cascades to its snapshots (`ON DELETE CASCADE`).
 
 ## API Endpoints
 
@@ -318,6 +333,7 @@ All under `API_V1_PREFIX` (`/api/v1`):
 | DELETE | `/assessments/{id}`     | Delete an assessment                   |
 | GET    | `/locations/search`     | Geocode a place name (`?q=...`)          |
 | GET    | `/locations/profile`    | Normalized solar/wind/weather/elevation data, plus India location resolution (state/UT/district/city/DISCOM), for a coordinate (`?latitude=...&longitude=...`) |
+| POST   | `/solar/calculate`      | Technical solar system options for an assessment (`{"assessment_id": "..."}`) |
 
 Example `POST /api/v1/assessments` payload:
 
@@ -532,7 +548,122 @@ boundary data (which DISCOM serves which district/city) is out of scope
 for this update — populating it from an authoritative source (each state's
 electricity regulatory commission) is future work.
 
-## Security Notes (Phase 2 & 3)
+## Solar Engine (Phase 4)
+
+**Phase 4 estimates technical solar generation and system feasibility. It
+does NOT determine a final recommendation, subsidy, tariff-based savings,
+payback, or final purchase price** — those are later phases (see
+[Financial Boundary](#financial-boundary) below).
+
+```
+Location Intelligence (Phase 3, India-based resource data)
+        v
+Normalized Solar Resource (app.schemas.location.SolarResourceProfile)
+        v
+Solar Engine (app/engines/solar/ — pure functions, no FastAPI/DB/API import)
+        v
+System Options (1-10 kW, each independently evaluated)
+        v
+Future Financial Engine
+```
+
+`app/engines/solar/` never imports FastAPI, SQLAlchemy, or an HTTP client.
+`SolarCalculationService` (`app/services/solar_calculation_service.py`)
+is the only thing that bridges the two worlds: it loads the Assessment,
+calls the existing Phase 3 `LocationService.get_profile()` — **the Solar
+Engine never calls NASA POWER or any provider directly** — and hands the
+engine a plain `SolarEngineInput`.
+
+### Formula
+
+Standard rooftop-PV yield estimation, applied uniformly to every Indian
+location — there is no per-state branching; the only thing that varies by
+location is the resource value itself:
+
+```
+Annual Generation (kWh) = Capacity (kWp) x Daily Solar Resource (kWh/m^2/day) x 365 x Performance Ratio
+```
+
+The daily solar resource value is NASA POWER's `ALLSKY_SFC_SW_DWN`
+(kWh/m²/day), which is numerically equivalent to "peak sun hours per day"
+— exactly what this formula expects (the same method underlying
+widely-used tools like NREL's PVWatts). Monthly generation uses each
+month's own average daily value and its real calendar day-count (28-31),
+never a naive annual-divided-by-12 split. See
+`app/engines/solar/generation.py`.
+
+Roof area required scales from panel wattage, panel footprint, and a
+layout/shading-clearance factor — see `app/engines/solar/sizing.py`.
+
+### Assumptions (`app/engines/solar/assumptions.py`)
+
+Every non-measured constant is named, versioned, and sourced — never
+inline in a calculation function:
+
+| Assumption | Default | Basis |
+| --- | --- | --- |
+| `performance_ratio` | 0.75 | Conservative default for Indian rooftop PV (typical published range 0.70-0.85); covers inverter, wiring, soiling, temperature losses |
+| `panel_wattage_w` | 400 W | Representative modern monocrystalline PERC module |
+| `panel_area_sqft` | 21 sq ft | Physical footprint of a ~400W panel |
+| `layout_factor` | 1.4 | Typical allowance for mounting spacing, walkways, shading clearance |
+
+`ASSUMPTION_VERSION` and `ENGINE_CALCULATION_VERSION` are returned in
+every response and recorded in `SolarCalculationSnapshot`, so a past
+result stays interpretable even after these values are later revised.
+
+### Units
+
+1 electricity unit = 1 kWh throughout — the field is always
+`monthly_consumption_kwh`/`annual_consumption_kwh`, never a bare `units`.
+
+### Candidate evaluation and technical feasibility
+
+Every request evaluates all of 1, 2, 3, ..., 10 kW independently — **the
+engine never picks or labels a "best", "recommended", "optimal", or
+"cheapest" option**; that comparison is the future Recommendation Engine's
+job. Each option reports:
+
+- `estimated_annual_generation_kwh` / `estimated_monthly_generation_kwh`
+- `roof_area_required_sqft`
+- `generation_coverage_percent` — generation ÷ annual consumption, **not
+  capped at 100%** and **not a claim about the electricity bill** (see
+  Financial Boundary below)
+- `technical_status`: `technically_feasible` | `technically_infeasible` |
+  `insufficient_data` (e.g. roof area wasn't provided — generation numbers
+  are still shown even then, since they don't depend on roof area)
+
+If the location's solar resource is unavailable, non-positive, or in an
+unrecognized unit, the whole response is `status: "insufficient_data"`
+with a `reason` — never a fabricated result.
+
+### Financial boundary
+
+Generation is not the same as a lower electricity bill. Actual savings
+depend on tariff, self-consumption, export/net-metering rules, fixed
+charges, and applicable incentives — none of which are calculated in
+Phase 4. The response includes no cost, subsidy, saving, or payback field,
+and the frontend explicitly states "Financial analysis ... will be
+available in a later phase" rather than implying it already exists.
+
+### API
+
+`POST /api/v1/solar/calculate` — `{"assessment_id": "..."}`. Flow:
+retrieve the assessment, retrieve its Phase 3 location profile, validate
+solar-resource availability, run the engine, record a
+`SolarCalculationSnapshot`, return the structured result. A 404 means the
+assessment doesn't exist; `status: "insufficient_data"` (still `200 OK`)
+means the assessment/location exists but the calculation couldn't run
+(missing coordinates, unavailable resource, invalid input) — the frontend
+distinguishes these.
+
+### Reproducibility
+
+Given the same input, `calculation_version`, and `assumption_version`, the
+engine is a pure function and returns identical `options` and
+`annual_consumption_kwh` — verified directly (`test_solar_engine.py`) and
+live against the real API.
+
+## Security Notes (Phases 2-4)
 
 - No authentication yet. `app/services/prototype_user.py` centralizes a
   single well-known prototype user id so no user id is hard-coded elsewhere
@@ -552,27 +683,27 @@ electricity regulatory commission) is future work.
 
 ## Current Development Phase
 
-**CURRENT STATUS: Phase 3 — Location Intelligence, complete, plus the
-India-Based Architecture Update (data-model preparation for Phase 4)**
+**CURRENT PHASE: Phase 4 — India-Based Solar Engine, complete**
 
 Phase 1 established the monorepo, frontend UI, and backend foundation.
 Phase 2 turned the assessment UI into a real backend-backed system with
 PostgreSQL persistence. Phase 3 added a provider-agnostic location
 intelligence layer: real geocoding, solar/wind/weather/elevation data from
 free keyless providers, a map, and resource cards on both the standalone
-Location page and the assessment Dashboard (using the assessment's saved
-coordinates). See [Location Intelligence](#location-intelligence-phase-3)
-above for that architecture.
-
-Between Phase 3 and Phase 4, an **India-based architecture update** added
-the data-model groundwork the India-Based Solar Engine will need: India
-location resolution (state/UT/district/city/DISCOM — see
-[India location resolution](#india-location-resolution)), and the
+Location page and the assessment Dashboard. An India-based architecture
+update between Phase 3 and Phase 4 added India location resolution
+(state/UT/district/city/DISCOM — see
+[India location resolution](#india-location-resolution)) and the
 tariff/incentive schema (see
 [India-Based Tariff & Incentive Architecture](#india-based-tariff--incentive-architecture)).
-This is architecture preparation only — no solar/wind sizing, cost,
-tariff/subsidy calculation, recommendation, AI, or voice behavior are
-implemented yet.
+
+**Phase 4 estimates technical solar generation and system feasibility for
+an assessment, using the assessment's own India-based location and
+resource data (see [Solar Engine (Phase 4)](#solar-engine-phase-4)). It
+does NOT determine a final recommendation, subsidy, tariff-based savings,
+payback, or final purchase price** — no wind/hybrid/battery calculation,
+recommendation engine, financial engine, AI, voice, or ML is implemented
+yet.
 
 ## Future Roadmap
 
@@ -580,16 +711,16 @@ implemented yet.
 - Phase 2 — User Assessment + Database
 - Phase 3 — Location Intelligence
 - *(India-based architecture update — DISCOM/tariff/incentive data model)*
-- Phase 4 — India-Based Solar Engine
-- Phase 5 — Wind Engine
-- Phase 6 — Hybrid + Battery
-- Phase 7 — Recommendation Engine
-- Phase 8 — Financial + Subsidy Engine
-- Phase 9 — Dashboard
-- Phase 10 — AI Advisor
-- Phase 11 — Voice Advisor
-- Phase 12 — Electricity Bill Intelligence
-- Phase 13 — ML Prediction
-- Phase 14 — PDF Reports
-- Phase 15 — Testing + Security
-- Phase 16 — Deployment
+- Phase 4 — India-Based Solar Engine ✅
+- Phase 5 — India Electricity Tariff Engine
+- Phase 6 — Incentive Engine
+- Phase 7 — Wind Engine
+- Phase 8 — Hybrid + Battery
+- Phase 9 — Recommendation Engine
+- Phase 10 — Financial Engine
+- Phase 11 — AI Advisor
+- Phase 12 — Voice Advisor
+- Phase 13 — Electricity Bill Intelligence
+- Phase 14 — ML Prediction
+- Phase 15 — Reports
+- Phase 16 — Testing + Deployment
