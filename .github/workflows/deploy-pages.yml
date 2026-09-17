@@ -1,0 +1,68 @@
+name: Deploy frontend to GitHub Pages
+
+# Builds and publishes only frontend/ as a static site. This is a UI-only
+# preview: there is no backend or database behind it, so anything that
+# calls the API (assessment submission, location lookup, solar/tariff
+# calculations) will show its normal "unable to load" error state rather
+# than actually work — see the root README for how to run the full stack
+# (Docker Compose or GitHub Codespaces).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/deploy-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Add SPA fallback for client-side routing
+        # GitHub Pages has no server-side rewrite, so a direct link/refresh
+        # to e.g. /dashboard/<id> would 404. Pages falls back to 404.html
+        # for any unmatched path, and serving the same SPA shell there lets
+        # React Router take over and render the right route client-side.
+        working-directory: frontend/dist
+        run: cp index.html 404.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
