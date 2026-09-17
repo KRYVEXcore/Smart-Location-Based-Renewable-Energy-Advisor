@@ -63,7 +63,46 @@ class RenewableTechnology(str, enum.Enum):
 
 
 class SubsidyType(str, enum.Enum):
+    """How an incentive's amount is calculated — distinct from IncentiveType
+    (what kind of instrument it is) below.
+    """
+
     PERCENTAGE = "percentage"
     FIXED_AMOUNT = "fixed_amount"
     PER_KW = "per_kw"
+    # Phase 6 additions — see app.engines.incentive.calculator.
+    SLAB_BASED = "slab_based"
+    BENCHMARK_COST_BASED = "benchmark_cost_based"
     OTHER = "other"
+
+
+class IncentiveType(str, enum.Enum):
+    """What kind of instrument an incentive is — distinct from SubsidyType
+    (how its amount is calculated) and IncentiveLevel (who offers it).
+    """
+
+    CAPITAL_SUBSIDY = "capital_subsidy"
+    CENTRAL_FINANCIAL_ASSISTANCE = "central_financial_assistance"
+    STATE_SUBSIDY = "state_subsidy"
+    DISCOM_INCENTIVE = "discom_incentive"
+    REBATE = "rebate"
+    INTEREST_SUBVENTION = "interest_subvention"
+    GRANT = "grant"
+    PERFORMANCE_INCENTIVE = "performance_incentive"
+    OTHER = "other"
+
+
+class IncentiveVerificationStatus(str, enum.Enum):
+    """Distinct from IncentiveProgram.active: `active` says whether a row
+    should be considered at all; this says how much to trust it. Only
+    VERIFIED programmes may be used for automatic eligibility/calculation
+    (see app.engines.incentive.eligibility) — the others exist so a
+    partially-researched scheme can be recorded honestly instead of either
+    fabricated or silently omitted.
+    """
+
+    VERIFIED = "verified"
+    PENDING_REVIEW = "pending_review"
+    EXPIRED = "expired"
+    SUPERSEDED = "superseded"
+    UNAVAILABLE = "unavailable"

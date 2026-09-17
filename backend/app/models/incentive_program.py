@@ -1,25 +1,49 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, Enum, ForeignKey, Numeric, String, Uuid, func
+from sqlalchemy import JSON, Boolean, Date, DateTime, Enum, ForeignKey, Numeric, String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database.connection import Base
-from app.models.enums import BuildingType, IncentiveLevel, RenewableTechnology, SubsidyType
+from app.models.enums import (
+    IncentiveLevel,
+    IncentiveType,
+    IncentiveVerificationStatus,
+    RenewableTechnology,
+    SubsidyType,
+    TariffConsumerCategory,
+)
 
 
 class IncentiveProgram(Base):
-    """A single central, state/UT, or DISCOM incentive scheme.
+    """A single central, state/UT, or DISCOM renewable-energy incentive
+    scheme — one row per scheme *version* (unlike ElectricityTariff, where
+    one row is one slab; an incentive program is inherently one coherent
+    set of rules, not a bracket of a larger schedule).
 
-    `consumer_category` is nullable to allow a genuinely category-agnostic
-    scheme, but a future matching engine must treat NULL as "verify
-    eligibility_rules" — never as "applies to everyone". This is exactly
-    the rule that stops a residential central subsidy (e.g. PM Surya Ghar)
-    from being silently applied to a school or office; each of those needs
-    its own explicit row (or an explicit NULL + rule) once verified.
+    `scheme_version` groups the historical versions of what is
+    conceptually "the same scheme" (matched by scheme_name + level +
+    technology — see app.engines.incentive.version_selection) so an old
+    version is never overwritten, and the correct one is selected by
+    effective date.
 
-    No production rows are seeded by this migration — populating real
-    schemes is future work; this only prepares the schema.
+    `consumer_category` reuses Phase 5's TariffConsumerCategory (see
+    app.engines.tariff.consumer_category_mapping) rather than BuildingType
+    directly — Phase 6 must not create a second, incompatible category
+    mapping. NULL means genuinely category-agnostic; the eligibility
+    engine must never treat NULL as "applies to everyone" without also
+    checking `eligibility_rules`.
+
+    `verification_status` is distinct from `active`: only VERIFIED rows
+    are used for automatic eligibility/calculation (see
+    app.engines.incentive.eligibility) — a PENDING_REVIEW/UNAVAILABLE row
+    can still be recorded (for the research record) without ever being
+    presented as a real, applicable subsidy.
+
+    No production rows are seeded by this migration — see
+    backend/app/data/incentives/india/README.md for the Phase 6
+    investigation record of why no scheme could be confidently verified
+    yet.
     """
 
     __tablename__ = "incentive_programs"
@@ -27,11 +51,17 @@ class IncentiveProgram(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
 
     scheme_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    scheme_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     level: Mapped[IncentiveLevel] = mapped_column(Enum(IncentiveLevel), nullable=False)
+    incentive_type: Mapped[IncentiveType] = mapped_column(Enum(IncentiveType), nullable=False)
+
     state: Mapped[str | None] = mapped_column(String(120), nullable=True)
     union_territory: Mapped[str | None] = mapped_column(String(120), nullable=True)
     discom_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("discoms.id"), nullable=True)
-    consumer_category: Mapped[BuildingType | None] = mapped_column(Enum(BuildingType), nullable=True)
+    consumer_category: Mapped[TariffConsumerCategory | None] = mapped_column(
+        Enum(TariffConsumerCategory), nullable=True
+    )
     technology: Mapped[RenewableTechnology] = mapped_column(Enum(RenewableTechnology), nullable=False)
 
     min_system_size_kw: Mapped[float | None] = mapped_column(Numeric(8, 2), nullable=True)
@@ -41,14 +71,39 @@ class IncentiveProgram(Base):
     # Generic amount whose meaning depends on subsidy_type (e.g. INR per kW
     # for PER_KW, a flat INR amount for FIXED_AMOUNT).
     subsidy_value: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
-    # Specific to PERCENTAGE-type subsidies, optionally capped by maximum_amount.
+    # Specific to PERCENTAGE-type subsidies. Requires a real eligible cost
+    # basis to calculate, which this app does not collect — see
+    # app.engines.incentive.calculator (always "insufficient_information"
+    # for PERCENTAGE/BENCHMARK_COST_BASED today).
     percentage_value: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
+    # A cap applicable to PERCENTAGE, PER_KW, SLAB_BASED, or
+    # BENCHMARK_COST_BASED amounts alike — never to FIXED_AMOUNT (already a
+    # single fixed number).
     maximum_amount: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    # Structured formula inputs for SLAB_BASED (a "slabs" list keyed by
+    # capacity_min_kw/capacity_max_kw/rate_inr_per_kw) and
+    # BENCHMARK_COST_BASED (benchmark_cost_per_kw_inr + eligible_percentage)
+    # calculation types — see app.engines.incentive.calculator for the
+    # exact schema each type expects.
+    calculation_rules: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
+    # Generic conditions the eligibility engine checks against whatever
+    # assessment context is actually available — see
+    # app.engines.incentive.eligibility. A condition referencing a field
+    # this app never collects always resolves as missing, never guessed.
     eligibility_rules: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    application_requirements: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Combinability with other programmes — see
+    # app.engines.incentive.stacking. Absent/incomplete rules mean
+    # "unverified", never "combinable by default".
+    stacking_rules: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     effective_from: Mapped[date] = mapped_column(Date, nullable=False)
     effective_to: Mapped[date | None] = mapped_column(Date, nullable=True)
+    verification_status: Mapped[IncentiveVerificationStatus] = mapped_column(
+        Enum(IncentiveVerificationStatus), nullable=False
+    )
+    source_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     source_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     source_document: Mapped[str | None] = mapped_column(String(255), nullable=True)
     last_verified: Mapped[date | None] = mapped_column(Date, nullable=True)

@@ -1,18 +1,23 @@
 # Backend — India-Based Smart Location-Based Renewable Energy Advisor
 
 FastAPI + SQLAlchemy + PostgreSQL + Alembic. Serves India-based location,
-resource, tariff, and incentive data, and runs the India-Based Solar Engine
-and the India Electricity Tariff Engine — see the root README's
+resource, tariff, and incentive data, and runs the India-Based Solar
+Engine, the India Electricity Tariff Engine, and the India Renewable
+Energy Incentive Engine — see the root README's
 [India-Based Tariff & Incentive Architecture](../README.md#india-based-tariff--incentive-architecture),
-[Solar Engine (Phase 4)](../README.md#solar-engine-phase-4), and
-[Electricity Tariff Engine (Phase 5)](../README.md#electricity-tariff-engine-phase-5)
+[Solar Engine (Phase 4)](../README.md#solar-engine-phase-4),
+[Electricity Tariff Engine (Phase 5)](../README.md#electricity-tariff-engine-phase-5),
+and [Incentive Engine (Phase 6)](../README.md#incentive-engine-phase-6)
 sections for the data model and calculation architecture this backend
 implements.
 
-`backend/app/data/tariffs/india/` holds verified tariff seed data (none
-yet — see its own README for the per-state investigation record) and
-`backend/scripts/seed_tariffs.py` loads it into `electricity_tariffs`;
-run with `python -m scripts.seed_tariffs` from `backend/`.
+`backend/app/data/tariffs/india/` and `backend/app/data/incentives/india/`
+hold verified tariff/incentive seed data (none yet in either — see each
+directory's own README for the investigation record) and
+`backend/scripts/seed_tariffs.py` / `backend/scripts/seed_incentives.py`
+load them into `electricity_tariffs` / `incentive_programs`; run with
+`python -m scripts.seed_tariffs` / `python -m scripts.seed_incentives`
+from `backend/`.
 
 ## Setup
 
@@ -76,6 +81,15 @@ the API tests use `tests/location_fakes.py`'s fake location service (with
 a real `IndiaLocationResolver` wired to the test database) so DISCOM
 resolution is exercised without a live geocoding call.
 
+Incentive Engine tests (`test_incentive_capacity_slab_validation.py`,
+`test_incentive_calculator.py`, `test_incentive_version_selection.py`,
+`test_incentive_eligibility.py`, `test_incentive_stacking.py`,
+`test_incentive_engine.py`, `test_incentive_api.py`,
+`test_seed_incentives.py`) follow the same pattern — no live network call,
+synthetic `TEST FIXTURE ONLY`-labeled programme data, and the seed
+idempotency tests write to temporary files rather than
+`backend/app/data/incentives/india/` (which has no real files yet).
+
 ## Environment variables
 
 Copy [`../.env.example`](../.env.example) to `.env` inside this `backend/`
@@ -91,5 +105,6 @@ full architecture and directory layout, and
 [Location Intelligence](../README.md#location-intelligence-phase-3) /
 [India-Based Tariff & Incentive Architecture](../README.md#india-based-tariff--incentive-architecture) /
 [Solar Engine (Phase 4)](../README.md#solar-engine-phase-4) /
-[Electricity Tariff Engine (Phase 5)](../README.md#electricity-tariff-engine-phase-5)
+[Electricity Tariff Engine (Phase 5)](../README.md#electricity-tariff-engine-phase-5) /
+[Incentive Engine (Phase 6)](../README.md#incentive-engine-phase-6)
 for the schema, API, and provider/calculation architecture.

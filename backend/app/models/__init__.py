@@ -8,10 +8,13 @@ from app.models.enums import (
     AssessmentStatus,
     BuildingType,
     IncentiveLevel,
+    IncentiveType,
+    IncentiveVerificationStatus,
     RenewableTechnology,
     SubsidyType,
     TariffConsumerCategory,
 )
+from app.models.incentive_evaluation_snapshot import IncentiveEvaluationSnapshot
 from app.models.incentive_program import IncentiveProgram
 from app.models.location import Location
 from app.models.location_resource_snapshot import LocationResourceSnapshot
@@ -28,8 +31,11 @@ __all__ = [
     "Discom",
     "ElectricityTariff",
     "EnergyProfile",
+    "IncentiveEvaluationSnapshot",
     "IncentiveLevel",
     "IncentiveProgram",
+    "IncentiveType",
+    "IncentiveVerificationStatus",
     "Location",
     "LocationResourceSnapshot",
     "RenewableTechnology",

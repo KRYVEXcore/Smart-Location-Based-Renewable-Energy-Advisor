@@ -86,7 +86,8 @@ renewable-energy-advisor/
 ├── backend/                      FastAPI application
 │   ├── app/
 │   │   ├── main.py                FastAPI app instance, CORS, error handling, router wiring
-│   │   ├── api/v1/routes/         health.py, assessments.py, locations.py
+│   │   ├── api/v1/routes/         health.py, assessments.py, locations.py, solar.py,
+│   │   │                            tariffs.py, incentives.py
 │   │   ├── core/                    config.py, security.py, constants.py,
 │   │   │                              india_geography.py (static states/UTs list)
 │   │   ├── database/
@@ -94,32 +95,50 @@ renewable-energy-advisor/
 │   │   │   └── repositories/            assessment_repository.py,
 │   │   │                                  location_resource_snapshot_repository.py,
 │   │   │                                  solar_calculation_snapshot_repository.py,
-│   │   │                                  discom_repository.py
+│   │   │                                  discom_repository.py, tariff_repository.py,
+│   │   │                                  tariff_calculation_snapshot_repository.py,
+│   │   │                                  incentive_program_repository.py,
+│   │   │                                  incentive_evaluation_snapshot_repository.py
+│   │   ├── data/
+│   │   │   └── incentives/india/         Verified incentive seed data (none yet — see its README.md)
 │   │   ├── models/                   User, Building, Location, EnergyProfile,
 │   │   │                                BuildingConstraints, Assessment,
 │   │   │                                LocationResourceSnapshot, Discom,
 │   │   │                                ElectricityTariff, IncentiveProgram,
-│   │   │                                SolarCalculationSnapshot, enums.py
-│   │   ├── schemas/                   assessment.py, location.py, solar.py
+│   │   │                                SolarCalculationSnapshot, TariffCalculationSnapshot,
+│   │   │                                IncentiveEvaluationSnapshot, enums.py
+│   │   ├── schemas/                   assessment.py, location.py, solar.py, tariff.py, incentive.py
 │   │   ├── services/
 │   │   │   ├── assessment_service.py    Assessment persistence orchestration
 │   │   │   ├── prototype_user.py         Centralized prototype-user resolution
 │   │   │   ├── solar_calculation_service.py  Assessment + LocationProfile -> Solar Engine (Phase 4)
 │   │   │   ├── solar_dependencies.py      FastAPI wiring for the above
+│   │   │   ├── tariff_calculation_service.py  Assessment + LocationProfile -> Tariff Engine (Phase 5)
+│   │   │   ├── tariff_dependencies.py     FastAPI wiring for the above
+│   │   │   ├── incentive_evaluation_service.py  Assessment + LocationProfile -> Incentive Engine (Phase 6)
+│   │   │   ├── incentive_dependencies.py  FastAPI wiring for the above
 │   │   │   ├── location/                  LocationService, cache, provider_factory,
 │   │   │   │                                dependencies.py, providers/ (Phase 3),
 │   │   │   │                                india_resolver.py (India architecture update)
-│   │   │   ├── ai/                        AIAdvisorService interface (Phase 10)
-│   │   │   └── voice/                      Speech-to-text / text-to-speech / voice advisor interfaces (Phase 11)
+│   │   │   ├── ai/                        AIAdvisorService interface (Phase 11)
+│   │   │   └── voice/                      Speech-to-text / text-to-speech / voice advisor interfaces (Phase 12)
 │   │   ├── engines/
 │   │   │   ├── solar/                   assumptions.py, generation.py, sizing.py,
 │   │   │   │                              validation.py, solar_engine.py (Phase 4 — done)
-│   │   │   ├── wind/                     Phase 5
-│   │   │   ├── hybrid/                    Phase 6
-│   │   │   ├── financial/                  Phase 8
-│   │   │   └── recommendation/              Phase 7
-│   │   └── ml/                             Prediction models (Phase 13)
+│   │   │   ├── tariff/                   consumer_category_mapping.py, slab_calculation.py,
+│   │   │   │                              version_selection.py, bill_calculation.py,
+│   │   │   │                              tariff_engine.py (Phase 5 — done)
+│   │   │   ├── incentive/                 eligibility.py, calculator.py, version_selection.py,
+│   │   │   │                               stacking.py, validation.py, incentive_engine.py
+│   │   │   │                               (Phase 6 — done; reuses tariff's category mapping)
+│   │   │   ├── wind/                     Phase 7
+│   │   │   ├── hybrid/                    Phase 8
+│   │   │   ├── recommendation/             Phase 9
+│   │   │   └── financial/                  Phase 10
+│   │   └── ml/                             Prediction models (Phase 14)
 │   ├── alembic/                    Database migrations (versions/, env.py)
+│   ├── scripts/                    seed_tariffs.py, seed_incentives.py — one-off, reviewed
+│   │                                 data-loading scripts, not run automatically
 │   └── tests/
 │
 ├── docs/                          Reserved for future architecture/API docs
@@ -308,25 +327,41 @@ ElectricityTariff (state, union_territory, discom_id, consumer_category,
                     wheeling_charge_inr_per_kwh, effective_from, effective_to,
                     source_url, source_document, source_name, last_verified, active)
 
-IncentiveProgram (scheme_name, level, state, union_territory, discom_id,
-                   consumer_category, technology, min_system_size_kw, max_system_size_kw,
-                   subsidy_type, subsidy_value, percentage_value, maximum_amount,
-                   eligibility_rules, effective_from, effective_to, source_url,
-                   source_document, last_verified, active)
+IncentiveProgram (scheme_name, scheme_version, description, level, incentive_type,
+                   state, union_territory, discom_id, consumer_category, technology,
+                   min_system_size_kw, max_system_size_kw, subsidy_type, subsidy_value,
+                   percentage_value, maximum_amount, calculation_rules, eligibility_rules,
+                   application_requirements, stacking_rules, effective_from, effective_to,
+                   verification_status, source_name, source_url, source_document,
+                   last_verified, active)
 
 TariffCalculationSnapshot (assessment_id, calculation_version,
                             input_snapshot, result_snapshot, created_at)
+
+IncentiveEvaluationSnapshot (assessment_id, calculation_version,
+                              input_snapshot, result_snapshot, created_at)
 ```
 
 - `building_type` (the app's own assessment classification):
   `home` | `school` | `college` | `office` | `shop` | `small_institution` | `other`.
-  Still used directly as `IncentiveProgram.consumer_category` (unchanged in
-  Phase 5). `ElectricityTariff.consumer_category` instead uses the separate
-  `TariffConsumerCategory` enum below — see
-  [Electricity Tariff Engine (Phase 5)](#electricity-tariff-engine-phase-5).
-- `consumer_category` on `ElectricityTariff` (`TariffConsumerCategory`):
+  `ElectricityTariff.consumer_category` and `IncentiveProgram.consumer_category`
+  both instead use the separate `TariffConsumerCategory` enum below (Phase 6
+  reuses Phase 5's mapping rather than creating a second, incompatible one —
+  see [Incentive Engine (Phase 6)](#incentive-engine-phase-6)).
+- `consumer_category` on `ElectricityTariff`/`IncentiveProgram` (`TariffConsumerCategory`):
   `residential` | `commercial` | `educational_institution` | `public_service` |
   `industrial` | `agriculture` | `other`
+- `incentive_type` on `IncentiveProgram` (what kind of instrument, distinct
+  from `level` = who offers it, and `subsidy_type` = how it's calculated):
+  `capital_subsidy` | `central_financial_assistance` | `state_subsidy` |
+  `discom_incentive` | `rebate` | `interest_subvention` | `grant` |
+  `performance_incentive` | `other`
+- `subsidy_type` on `ElectricityTariff`/`IncentiveProgram` — Phase 6 added
+  `slab_based` and `benchmark_cost_based` to the existing
+  `percentage` | `fixed_amount` | `per_kw` | `other`.
+- `verification_status` on `IncentiveProgram` — distinct from `active`; only
+  `verified` rows are used for automatic eligibility/calculation:
+  `verified` | `pending_review` | `expired` | `superseded` | `unavailable`
 - `status`: `draft` | `submitted` | `completed` — Phase 2 always saves `submitted`
 - `User` has no authentication yet. Every request is attributed to a single
   deterministic prototype user (`app/services/prototype_user.py`) — see the
@@ -339,11 +374,12 @@ TariffCalculationSnapshot (assessment_id, calculation_version,
   specific assessment (see [Location Intelligence](#location-intelligence-phase-3)
   below) — it is not a foreign key relation off `Location`.
 - `Discom`, `ElectricityTariff`, and `IncentiveProgram` are the India-based
-  tariff/incentive architecture added to prepare for the Solar Engine —
-  see [India-Based Tariff & Incentive Architecture](#india-based-tariff--incentive-architecture)
-  below. **No production rows are seeded in any of the three** — populating
-  real tariff orders and scheme data, and the engine that resolves a user's
-  exact tariff/incentives, are future work.
+  tariff/incentive architecture — see
+  [India-Based Tariff & Incentive Architecture](#india-based-tariff--incentive-architecture)
+  below. Both `ElectricityTariff` (Phase 5) and `IncentiveProgram` (Phase 6)
+  now have working calculation engines, but **no production rows are seeded
+  in either** — populating real tariff orders and scheme data is honestly
+  unfinished, not unbuilt (see each phase's data-coverage notes for why).
 - `SolarCalculationSnapshot` is a Phase 4 write-through audit log (same
   pattern as `LocationResourceSnapshot`) recording the exact input and
   result of every solar calculation, tagged with the engine/assumption
@@ -352,8 +388,10 @@ TariffCalculationSnapshot (assessment_id, calculation_version,
   assessment cascades to its snapshots (`ON DELETE CASCADE`).
 - `TariffCalculationSnapshot` is the same write-through audit pattern for
   Phase 5's tariff calculations (`ON DELETE CASCADE` from day one — see the
-  Phase 4 fix note in [Security Notes](#security-notes-phases-2-5) for why
+  Phase 4 fix note in [Security Notes](#security-notes-phases-2-6) for why
   that matters).
+- `IncentiveEvaluationSnapshot` is the same pattern again for Phase 6's
+  incentive evaluations (`ON DELETE CASCADE` from day one).
 
 ## API Endpoints
 
@@ -372,6 +410,8 @@ All under `API_V1_PREFIX` (`/api/v1`):
 | POST   | `/solar/calculate`      | Technical solar system options for an assessment (`{"assessment_id": "..."}`) |
 | POST   | `/tariffs/calculate`    | Estimated baseline electricity bill for an assessment (`{"assessment_id": "...", "calculation_date": "YYYY-MM-DD"}`, date optional) |
 | GET    | `/tariffs`              | Filtered tariff slab lookup (`?state=...&union_territory=...&consumer_category=...&discom_id=...`) |
+| POST   | `/incentives/evaluate`  | Incentive eligibility for an assessment (`{"assessment_id": "...", "technology": "solar", "proposed_capacity_kw": 3, "calculation_date": "YYYY-MM-DD"}`, date optional) |
+| GET    | `/incentives`           | Filtered incentive programme lookup (`?state=...&union_territory=...&discom_id=...&technology=...&consumer_category=...&level=...`) |
 
 Example `POST /api/v1/assessments` payload:
 
@@ -505,13 +545,14 @@ latitude/longitude -> state or union territory -> district -> city -> DISCOM
 
 ## India-Based Tariff & Incentive Architecture
 
-Prepared the data model the India-Based Solar Engine (Phase 4) and the
-India Electricity Tariff Engine (Phase 5, below) read from. **The tariff
-side now has a working calculation engine** (see
-[Electricity Tariff Engine (Phase 5)](#electricity-tariff-engine-phase-5));
-the incentive side is still schema-only — **no incentive calculation engine
-exists yet, and no production tariff or subsidy rows are seeded** (see that
-section's honest-data-coverage note for why).
+Prepared the data model the India-Based Solar Engine (Phase 4), the India
+Electricity Tariff Engine (Phase 5), and the Incentive Engine (Phase 6,
+below) all read from. **Both the tariff and incentive sides now have
+working calculation engines** (see
+[Electricity Tariff Engine (Phase 5)](#electricity-tariff-engine-phase-5)
+and [Incentive Engine (Phase 6)](#incentive-engine-phase-6)) — but **no
+production tariff or incentive rows are seeded in either**; see each
+section's honest-data-coverage note for why.
 
 ```
 LOCATION INTELLIGENCE  ------->  India Location Resolver
@@ -549,39 +590,50 @@ data has been seeded yet.
 
 ### Incentive architecture (`app/models/incentive_program.py`)
 
-One row per scheme. `level` separates **central** / **state** / **discom**
-schemes — they are never combined into one number. `consumer_category` is
-nullable (a scheme can be category-agnostic) but a future matching engine
-must treat `null` as "check `eligibility_rules`", never as "applies to
-everyone" — this is exactly what stops a residential central subsidy (e.g.
-PM Surya Ghar) from being silently applied to a school, college, or office.
-`technology` (solar/wind/hybrid/battery/other), `subsidy_type`
-(percentage/fixed_amount/per_kw/other) with `subsidy_value` (generic,
-meaning depends on `subsidy_type`), `percentage_value` +
-`maximum_amount` (for a capped percentage scheme), `min_system_size_kw` /
-`max_system_size_kw`, and a JSON `eligibility_rules` field for conditions
-that don't fit a column. The table is empty in production, same as
-tariffs.
+One row per scheme *version* (see
+[Incentive Engine (Phase 6)](#incentive-engine-phase-6) for the full
+architecture). `level` separates **central** / **state** / **discom**
+schemes — they are never combined into one number. `consumer_category`
+(`TariffConsumerCategory`, same enum and mapping as `ElectricityTariff` —
+never a second, incompatible category concept) is nullable (a scheme can
+be category-agnostic) but the eligibility engine treats `null` as "check
+`eligibility_rules`", never as "applies to everyone" — this is exactly
+what stops a residential central subsidy (e.g. PM Surya Ghar) from being
+silently applied to a school, college, or office. `technology`
+(solar/wind/hybrid/battery/other), `incentive_type` (what kind of
+instrument — capital subsidy, CFA, rebate, etc.), `subsidy_type` (how the
+amount is calculated — percentage/fixed_amount/per_kw/slab_based/
+benchmark_cost_based/other) with `subsidy_value`/`percentage_value`/
+`calculation_rules` (meaning depends on `subsidy_type`), `maximum_amount`
+(a cap), `min_system_size_kw`/`max_system_size_kw`, `eligibility_rules` +
+`application_requirements` + `stacking_rules` (JSON, for conditions that
+don't fit a column), and `verification_status` (distinct from `active` —
+only `verified` rows are used for eligibility/calculation). The table is
+empty in production, same as tariffs.
 
 The architecture supports every case the eligibility rules require: a
 central-only scheme with no state top-up, a state scheme with no DISCOM
-rule, multiple simultaneously-applicable schemes (multiple rows), no
-additional incentive for a given state (simply no row), an expired scheme
-(`active=false`, `effective_to` in the past), and "eligibility unknown"
-(no row matches — the honest absence of data, not a guess).
+rule, multiple simultaneously-applicable schemes (multiple rows, each
+independently evaluated — never auto-summed), no additional incentive for
+a given state (simply no row), an expired scheme (`effective_to` in the
+past), and "eligibility unknown" (no row matches, or a row exists but
+isn't `verified` — the honest absence of usable data, not a guess).
 
 ### Data versioning & source traceability
 
-Both `ElectricityTariff` and `IncentiveProgram` carry the same versioning
+`ElectricityTariff` and `IncentiveProgram` carry the same versioning
 fields: `effective_from`, `effective_to`, `last_verified`, `source_url`,
-`source_document`, `active`. A future engine must resolve the record valid
-on the assessment's date and must never use an expired record when an
-active one exists — this schema makes that check possible; it doesn't
-perform it yet. The frontend can eventually show, for any tariff or
-incentive: `Source: <source_document / source_url>`,
-`Last verified: <last_verified>`, `Effective: <effective_from> – <effective_to or "ongoing">`.
-No fake source URLs or verification dates are ever stored — an
-unpopulated record simply doesn't exist yet.
+`source_document`, `source_name`, `active` (`IncentiveProgram` additionally
+has `verification_status` and a `scheme_version` string, since a
+government scheme's version history matters more than a tariff schedule's
+— see [Incentive Engine (Phase 6)](#incentive-engine-phase-6)). Both
+engines resolve the record valid on the calculation date and never use an
+expired record when a current one exists — this is implemented and tested,
+not just modeled. The frontend shows, for any tariff or incentive:
+`Source: <source_name>`, `Last verified: <last_verified>`,
+`Effective: <effective_from> – <effective_to or "ongoing">`. No fake
+source URLs or verification dates are ever stored — an unpopulated record
+simply doesn't exist yet.
 
 ### DISCOM registry (`app/models/discom.py`)
 
@@ -859,7 +911,179 @@ calculation is also recorded to `TariffCalculationSnapshot`
 (`ON DELETE CASCADE` on the owning assessment, same pattern as
 `SolarCalculationSnapshot`).
 
-## Security Notes (Phases 2-5)
+## Incentive Engine (Phase 6)
+
+**Phase 6 evaluates which renewable-energy incentive programmes an
+assessment may be eligible for, and calculates their amount when the
+programme's own documented formula allows it from data this app actually
+collects. It does NOT calculate final installation cost, final savings,
+payback, ROI, or a wind/hybrid/battery recommendation** — see
+[Financial boundary](#incentive-financial-boundary) below.
+
+```
+Assessment (building.building_type, energy.monthly_consumption_kwh, constraints)
+        v
+Phase 3 LocationService.get_profile() -> IndiaLocationContext
+        (state/UT, DISCOM, discom_status — never re-derived)
+        v
+BuildingType -> TariffConsumerCategory (Phase 5's mapping, reused — never a second one)
+        v
+IncentiveProgramRepository (technology + state/UT/DISCOM candidates,
+                             NOT pre-filtered by category — see below)
+        v
+Incentive Engine (app/engines/incentive/ — pure functions, no FastAPI/DB/API import)
+   - group candidate rows into distinct schemes (scheme_name + level + technology)
+   - select the scheme_version covering the calculation date
+   - evaluate eligibility (verification status, technology, category, capacity, rules)
+   - calculate the amount when the documented formula and available data allow it
+   - flag stacking/combinability uncertainty across simultaneously-eligible programmes
+        v
+Every candidate programme's eligibility status — eligible ones never hidden,
+ineligible/unverified/uncertain ones never hidden either
+```
+
+`app/engines/incentive/` never imports FastAPI, SQLAlchemy, or an HTTP
+client — the same rule as `app/engines/tariff/` and `app/engines/solar/`.
+`IncentiveEvaluationService` (`app/services/incentive_evaluation_service.py`)
+is the only bridge: it loads the Assessment, calls the existing Phase 3
+`LocationService.get_profile()` (DISCOM resolution is never re-run), maps
+`BuildingType` to `TariffConsumerCategory` via
+`app.engines.tariff.consumer_category_mapping` (imported directly — Phase 6
+has no category-mapping file of its own), queries candidate programme rows,
+and hands the engine a plain list of programme DTOs.
+
+The repository deliberately does **not** filter by consumer category (only
+by technology and state/UT/central scope): a programme that doesn't match
+the assessment's category still needs to come back so the engine can
+report it `not_eligible` — filtering it out at the query level would hide
+it entirely, which section 25's "never hide an ineligible or uncertain
+programme" rule forbids.
+
+### Consumer category & DISCOM scoping
+
+Identical rules to Phase 5, applied here too: **never** assume a solar
+incentive applies to wind/battery, or a residential scheme applies to a
+commercial consumer — technology and `consumer_category` must match
+exactly (or the programme's category is `null`, meaning genuinely
+category-agnostic). DISCOM scoping mirrors Phase 5's:
+
+- `discom_status: "identified"` — prefers that exact DISCOM's programmes;
+  falls back to a state-level programme only if that DISCOM has none.
+- `discom_status: "ambiguous"` or `"not_identified"` — a DISCOM-specific
+  programme is never guessed. Each blocked DISCOM-level scheme is still
+  reported explicitly, as `discom_ambiguous` or `discom_not_identified` —
+  never silently omitted.
+
+### Scheme versioning (`app/engines/incentive/version_selection.py`)
+
+A distinct scheme (identified by `scheme_name` + `level` + `technology`)
+can have several `scheme_version` rows on file over time — e.g. PM Surya
+Ghar's guidelines have been amended more than once since 2024. Exactly one
+version is selected for the requested calculation date: the version whose
+`[effective_from, effective_to]` range covers it, preferring the latest
+`effective_from`, ties broken by the version string — deterministic, never
+random. If no version covers the date, the scheme is reported
+`scheme_expired` (every version is in the past) or `scheme_not_active`
+(every version is in the future) — never silently dropped.
+
+### Eligibility (`app/engines/incentive/eligibility.py`)
+
+Checks, per candidate scheme version, in order: `verification_status`
+(only `verified` proceeds — anything else is `scheme_not_verified`),
+`active`, technology match, `consumer_category` match, `min_system_size_kw`
+(a smaller system is genuinely `not_eligible`), documented
+`eligibility_rules.requires_fields` (any field this app doesn't collect at
+all — e.g. income level, ownership status, sanctioned load/kVA — always
+resolves as missing, never invented, giving `insufficient_information`
+with the exact field names), and finally the amount calculation itself. A
+system **larger** than `max_system_size_kw` is still eligible — the cap
+just limits how much capacity counts toward the calculation (e.g. PM Surya
+Ghar's CFA caps at 3 kW even for a bigger system), matching how the real
+schemes actually work.
+
+### Calculation (`app/engines/incentive/calculator.py`)
+
+Decimal throughout — never float. Supports:
+
+| `subsidy_type` | Formula | Needs |
+| --- | --- | --- |
+| `fixed_amount` | A flat amount | `subsidy_value` |
+| `per_kw` | Rate × eligible capacity | `subsidy_value` |
+| `slab_based` | Telescoping capacity brackets (same algorithm shape as Phase 5's consumption slabs, applied to kW instead of kWh) | `calculation_rules.slabs` |
+| `percentage` | Percentage × eligible installation cost | `percentage_value` **and** a real cost basis |
+| `benchmark_cost_based` | Percentage × a published benchmark cost per kW | `calculation_rules.benchmark_cost_per_kw_inr` + `eligible_percentage` |
+
+<a id="incentive-financial-boundary"></a>
+
+### Financial boundary
+
+**This app collects no verified installation cost anywhere** —
+`BuildingConstraints.budget_inr` is the user's own aspirational budget, not
+a vendor quotation. `percentage`-type incentives are therefore always
+`insufficient_information` today, honestly, rather than computed against
+an invented cost — `fixed_amount`, `per_kw`, and `slab_based` (which only
+need capacity) can be calculated in full. The response never contains a
+final installation cost, savings, payback, or ROI figure.
+
+### Stacking (`app/engines/incentive/stacking.py`)
+
+Multiple eligible programmes are **never summed into one total** — each
+stays its own line item in the response. Two simultaneously-eligible
+programmes are only left unflagged if **both** sides' `stacking_rules`
+explicitly confirm combinability; an explicit
+`mutually_exclusive_with_levels` entry on either side flags both as
+`mutually_exclusive_with_other_programme`; anything else (including
+silence on one or both sides) flags both `combination_requires_verification`
+— absence of a documented rule is never treated as permission to combine.
+
+### API
+
+`POST /api/v1/incentives/evaluate` —
+`{"assessment_id": "...", "technology": "solar", "proposed_capacity_kw": 3, "calculation_date": "YYYY-MM-DD"}`
+(date optional, defaults to today). The frontend only ever submits
+assessment/context — the backend always selects the trusted, verified
+programme data itself; the frontend can never submit a subsidy rate or
+amount and get it echoed back as a calculation. Top-level `status` is
+`ok` or `insufficient_data` (no coordinates, or the location couldn't be
+resolved to an Indian state/UT); each entry in `programmes` carries its
+own status (`eligible` | `not_eligible` | `insufficient_information` |
+`scheme_expired` | `scheme_not_active` | `scheme_not_verified` |
+`discom_ambiguous` | `discom_not_identified`) — ineligible and unverified
+programmes are always included, never hidden.
+
+`GET /api/v1/incentives?state=...&union_territory=...&discom_id=...&technology=...&consumer_category=...&level=...`
+— a filtered raw-programme lookup for browsing/debugging what's
+configured.
+
+### India incentive data coverage
+
+Per this project's standing rule — **prefer NO DATA over FAKE DATA** — a
+scheme is only seeded once its rates, capacity limits, and conditions are
+confirmed from an actual official source (MNRE, a state renewable-energy
+nodal agency, or an official gazette/notification). PM Surya Ghar (central)
+and five states (Tamil Nadu, Maharashtra, Karnataka, Kerala, Rajasthan)
+were investigated for this phase; official sources were located for all of
+them, but none could be confidently verified with this phase's tooling —
+see
+[`backend/app/data/incentives/india/README.md`](backend/app/data/incentives/india/README.md)
+for the full record, including exactly which documents were found and why
+each couldn't be read. **Zero `IncentiveProgram` rows are seeded.** The
+architecture supports all 28 states and 8 union territories; the verified
+dataset is currently empty for all of them — see that README for the
+explicit architecture-coverage-vs-data-coverage distinction. The seed
+mechanism (`backend/scripts/seed_incentives.py`) is ready for real data
+once someone can verify it directly against a primary document.
+
+### Reproducibility
+
+Given the same input and candidate rows, the engine is a pure function and
+returns identical eligibility results and amounts — verified directly
+(`test_incentive_engine.py`) and live against the real API. Every
+evaluation is recorded to `IncentiveEvaluationSnapshot` (`ON DELETE
+CASCADE` on the owning assessment, same pattern as `SolarCalculationSnapshot`
+and `TariffCalculationSnapshot`).
+
+## Security Notes (Phases 2-6)
 
 - No authentication yet. `app/services/prototype_user.py` centralizes a
   single well-known prototype user id so no user id is hard-coded elsewhere
@@ -879,7 +1103,7 @@ calculation is also recorded to `TariffCalculationSnapshot`
 
 ## Current Development Phase
 
-**CURRENT PHASE: Phase 5 — India Electricity Tariff Engine, complete**
+**CURRENT PHASE: Phase 6 — India Renewable Energy Incentive Engine, complete**
 
 Phase 1 established the monorepo, frontend UI, and backend foundation.
 Phase 2 turned the assessment UI into a real backend-backed system with
@@ -893,18 +1117,25 @@ update between Phase 3 and Phase 4 added India location resolution
 tariff/incentive schema (see
 [India-Based Tariff & Incentive Architecture](#india-based-tariff--incentive-architecture)).
 Phase 4 estimated technical solar generation and system feasibility for an
-assessment (see [Solar Engine (Phase 4)](#solar-engine-phase-4)).
-
-**Phase 5 estimates a baseline grid-electricity bill for an assessment,
-using its existing consumption and India-based location/DISCOM data (see
+assessment (see [Solar Engine (Phase 4)](#solar-engine-phase-4)). Phase 5
+estimated a baseline grid-electricity bill from an assessment's consumption
+and location/DISCOM data (see
 [Electricity Tariff Engine (Phase 5)](#electricity-tariff-engine-phase-5)).
-It does NOT calculate subsidies, solar cost, payback, ROI, or savings** —
-and, per this project's own investigation record, **no state's tariff
-schedule has yet been confidently verified from an official source**, so
-every location currently reports `tariff_not_configured` in practice (the
-architecture is complete and tested; the data is honestly absent). No
-incentive engine, wind/hybrid/battery calculation, recommendation engine,
-financial engine, AI, voice, or ML is implemented yet.
+
+**Phase 6 evaluates which renewable-energy incentive programmes an
+assessment may be eligible for, and calculates the amount when a
+programme's documented formula and this app's own data allow it (see
+[Incentive Engine (Phase 6)](#incentive-engine-phase-6)). It does NOT
+calculate final installation cost, final savings, payback, or ROI** — and,
+per this project's own investigation record, **no central or state
+incentive scheme has yet been confidently verified from an official
+source**, so every location currently reports an empty, honest
+`programmes` list in practice (the architecture, eligibility engine,
+calculation engine, and stacking rules are complete and tested; the data
+is honestly absent — see
+[`backend/app/data/incentives/india/README.md`](backend/app/data/incentives/india/README.md)).
+No wind/hybrid/battery calculation, recommendation engine, financial
+engine, AI, voice, or ML is implemented yet.
 
 ## Future Roadmap
 
@@ -914,7 +1145,7 @@ financial engine, AI, voice, or ML is implemented yet.
 - *(India-based architecture update — DISCOM/tariff/incentive data model)*
 - Phase 4 — India-Based Solar Engine ✅
 - Phase 5 — India Electricity Tariff Engine ✅
-- Phase 6 — Incentive Engine
+- Phase 6 — India Renewable Energy Incentive Engine ✅
 - Phase 7 — Wind Engine
 - Phase 8 — Hybrid + Battery
 - Phase 9 — Recommendation Engine

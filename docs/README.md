@@ -15,11 +15,15 @@ prepared-but-not-yet-built),
 [Solar Engine (Phase 4)](../README.md#solar-engine-phase-4) (the
 deterministic India-based solar generation and technical-feasibility
 calculation — formulas, assumptions, units, and its explicit financial
-boundary), and
+boundary),
 [Electricity Tariff Engine (Phase 5)](../README.md#electricity-tariff-engine-phase-5)
 (the deterministic baseline grid-bill calculation — slab formula, DISCOM
 scoping, charge-component honesty rules, and the per-state tariff-data
-investigation record).
+investigation record), and
+[Incentive Engine (Phase 6)](../README.md#incentive-engine-phase-6) (the
+deterministic renewable-energy incentive eligibility and calculation
+engine — central/state/DISCOM separation, scheme versioning, stacking
+rules, and the central/per-state incentive-data investigation record).
 
 This folder is reserved for longer-form design documents (e.g. ADRs,
 diagrams) if a future phase needs them separately from the README.

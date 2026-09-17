@@ -19,11 +19,13 @@ import { ComparisonCard } from '../components/cards/ComparisonCard'
 import { LocationIntelligenceSection } from '../components/location/LocationIntelligenceSection'
 import { SolarAnalysisSection } from '../components/solar/SolarAnalysisSection'
 import { ElectricityTariffSection } from '../components/tariff/ElectricityTariffSection'
+import { GovernmentIncentivesSection } from '../components/incentive/GovernmentIncentivesSection'
 import { getAssessment } from '../services/assessmentService'
 import { ApiError } from '../services/apiClient'
 import { useLocationProfile } from '../hooks/useLocationProfile'
 import { useSolarCalculation } from '../hooks/useSolarCalculation'
 import { useTariffCalculation } from '../hooks/useTariffCalculation'
+import { useIncentiveEvaluation } from '../hooks/useIncentiveEvaluation'
 import type { AssessmentResponse } from '../types/assessmentApi'
 
 const COMPARISON_TECHNOLOGIES = [
@@ -34,6 +36,15 @@ const COMPARISON_TECHNOLOGIES = [
 ]
 
 type LoadState = 'empty' | 'loading' | 'ready' | 'error'
+
+// Phase 6 evaluates incentives for one technology + capacity per request.
+// Phase 4 never picks a single "recommended" capacity (it evaluates 1-10 kW
+// independently), so the dashboard uses a fixed reference point — a common
+// residential rooftop size — rather than inventing a recommendation Phase 6
+// isn't responsible for. A future Recommendation Engine (Phase 9) can pass
+// a real proposed capacity through instead.
+const DEFAULT_INCENTIVE_TECHNOLOGY = 'solar'
+const DEFAULT_INCENTIVE_CAPACITY_KW = 3
 
 export function DashboardPage() {
   const { assessmentId } = useParams<{ assessmentId: string }>()
@@ -49,6 +60,7 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
   const { profile, status: profileStatus, fetchProfile } = useLocationProfile()
   const { result: solarResult, status: solarStatus, runCalculation } = useSolarCalculation()
   const { result: tariffResult, status: tariffStatus, runCalculation: runTariffCalculation } = useTariffCalculation()
+  const { result: incentiveResult, status: incentiveStatus, runEvaluation: runIncentiveEvaluation } = useIncentiveEvaluation()
 
   useEffect(() => {
     if (!assessmentId) return
@@ -95,8 +107,9 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
     if (assessment && locationSettled) {
       runCalculation(assessment.id)
       runTariffCalculation(assessment.id)
+      runIncentiveEvaluation(assessment.id, DEFAULT_INCENTIVE_TECHNOLOGY, DEFAULT_INCENTIVE_CAPACITY_KW)
     }
-  }, [assessment, profileStatus, runCalculation, runTariffCalculation])
+  }, [assessment, profileStatus, runCalculation, runTariffCalculation, runIncentiveEvaluation])
 
   if (loadState === 'empty') {
     return (
@@ -241,6 +254,30 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
       {hasCoordinates && tariffResult && (
         <div className="mt-5">
           <ElectricityTariffSection result={tariffResult} />
+        </div>
+      )}
+
+      <h2 className="mt-12 text-xl font-bold text-slate-900">Government incentives</h2>
+      {!hasCoordinates && (
+        <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
+          This assessment doesn&apos;t have saved coordinates, so incentive eligibility can&apos;t be
+          checked automatically.
+        </div>
+      )}
+      {hasCoordinates && incentiveStatus === 'loading' && (
+        <div className="mt-5 flex items-center gap-2 text-sm text-slate-500">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          Checking incentive eligibility…
+        </div>
+      )}
+      {hasCoordinates && incentiveStatus === 'error' && (
+        <p className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          Incentive eligibility is unavailable right now. Please check your internet connection.
+        </p>
+      )}
+      {hasCoordinates && incentiveResult && (
+        <div className="mt-5">
+          <GovernmentIncentivesSection result={incentiveResult} />
         </div>
       )}
 

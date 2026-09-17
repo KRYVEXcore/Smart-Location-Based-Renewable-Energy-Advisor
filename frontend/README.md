@@ -27,6 +27,21 @@ fetch is sequenced after the location-intelligence fetch settles, the same
 as the solar fetch, so both only run once the shared location cache is
 warm.
 
+**Phase 6 — Government Incentives:** the Dashboard's "Government
+incentives" section (`components/incentive/GovernmentIncentivesSection.tsx`)
+shows every candidate programme from `POST /api/v1/incentives/evaluate`
+(technology `solar`, a fixed 3 kW reference capacity — Phase 4 never picks
+a single "recommended" capacity, so this uses a common residential
+reference point rather than inventing one) as an expandable card: a status
+badge (✓ Eligible / × Not eligible / ? More information required /
+⚠ Verification required / — Expired or not yet active), the calculated
+amount only when the programme is actually eligible and calculable, and a
+"Why?" expansion with the reason, missing fields, stacking notes, and the
+official source link. Ineligible and unverified programmes are always
+shown, never hidden. An amount is never shown for anything but a verified,
+eligible, calculable programme. Sequenced after location settles, same as
+solar and tariff.
+
 **Phase 4 — Solar Analysis:** the Dashboard's "Solar analysis" section
 (`components/solar/SolarAnalysisSection.tsx`) shows the technical solar
 system options from `POST /api/v1/solar/calculate` — real generation, roof
