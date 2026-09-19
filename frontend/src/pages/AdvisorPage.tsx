@@ -1,11 +1,11 @@
 import { Section } from '../components/layout/Section'
-import { AdvisorExperience } from '../components/advisor/AdvisorExperience'
+import { AdvisorChat } from '../components/advisor/AdvisorChat'
 
 export function AdvisorPage() {
   return (
     <Section width="narrow">
-      <div className="rounded-3xl border border-slate-200 bg-white">
-        <AdvisorExperience />
+      <div className="flex h-[70vh] min-h-[440px] flex-col rounded-3xl border border-slate-200 bg-white">
+        <AdvisorChat className="flex-1" />
       </div>
     </Section>
   )

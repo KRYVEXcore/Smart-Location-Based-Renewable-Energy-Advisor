@@ -154,7 +154,7 @@ export function LocationStep({ value, onChange }: LocationStepProps) {
     return (
       <div className="flex flex-col gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Where is your building?</h2>
+          <h2 className="text-2xl font-bold text-slate-900">Where is your building located?</h2>
           <p className="mt-1 text-sm text-slate-500">
             Used later to look up local solar and wind resource data.
           </p>
@@ -228,7 +228,7 @@ export function LocationStep({ value, onChange }: LocationStepProps) {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">Where is your building?</h2>
+        <h2 className="text-2xl font-bold text-slate-900">Where is your building located?</h2>
         <p className="mt-1 text-sm text-slate-500">
           Used later to look up local solar and wind resource data.
         </p>

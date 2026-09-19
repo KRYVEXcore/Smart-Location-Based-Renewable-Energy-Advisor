@@ -23,7 +23,7 @@ export function Footer() {
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
             <Zap className="h-4 w-4" aria-hidden="true" />
           </span>
-          <span>Renewable Advisor — SIH 2026 prototype, Phase 1</span>
+          <span>SHREA AI — Smart renewable energy advisor</span>
         </div>
         <span
           className={`w-fit rounded-full px-3 py-1 text-xs font-medium ${STATUS_STYLES[status]}`}

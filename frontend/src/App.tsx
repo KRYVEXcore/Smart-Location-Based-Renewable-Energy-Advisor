@@ -5,6 +5,7 @@ import { AssessmentPage } from './pages/AssessmentPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LocationPage } from './pages/LocationPage'
 import { AdvisorPage } from './pages/AdvisorPage'
+import { MonitoringPage } from './pages/MonitoringPage'
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/dashboard/:assessmentId" element={<DashboardPage />} />
           <Route path="/location" element={<LocationPage />} />
+          <Route path="/monitoring" element={<MonitoringPage />} />
           <Route path="/advisor" element={<AdvisorPage />} />
         </Routes>
       </MainLayout>

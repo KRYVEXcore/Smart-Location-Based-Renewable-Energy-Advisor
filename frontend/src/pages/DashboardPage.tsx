@@ -160,15 +160,19 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
         Energy Assessment
       </span>
       <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-500">
-        <span className="flex items-center gap-1.5">
-          <MapPin className="h-4 w-4" aria-hidden="true" />
-          {assessment.location.formatted_address || 'Location not provided'}
+        <span className="flex min-w-0 items-start gap-1.5">
+          <MapPin className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 break-words">
+            {assessment.location.formatted_address || 'Location not provided'}
+          </span>
         </span>
-        <span className="flex items-center gap-1.5">
-          <Sun className="h-4 w-4" aria-hidden="true" />
-          {profile?.solar?.annual_value != null
-            ? `${profile.solar.annual_value.toFixed(2)} ${profile.solar.unit} solar resource`
-            : 'Solar resource — see Location Intelligence below'}
+        <span className="flex min-w-0 items-start gap-1.5">
+          <Sun className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 break-words">
+            {profile?.solar?.annual_value != null
+              ? `${profile.solar.annual_value.toFixed(2)} ${profile.solar.unit} solar resource`
+              : 'Solar resource — see Location Intelligence below'}
+          </span>
         </span>
       </div>
 

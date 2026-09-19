@@ -28,7 +28,7 @@ export function SolarOptionCard({ option }: SolarOptionCardProps) {
       </div>
 
       <dl className="mt-4 space-y-2 text-sm">
-        <div className="flex justify-between gap-2">
+        <div className="flex flex-wrap justify-between gap-x-2">
           <dt className="text-slate-500">Generation</dt>
           <dd className="text-right font-medium text-slate-900">
             {option.estimated_annual_generation_kwh != null
@@ -36,13 +36,13 @@ export function SolarOptionCard({ option }: SolarOptionCardProps) {
               : '—'}
           </dd>
         </div>
-        <div className="flex justify-between gap-2">
+        <div className="flex flex-wrap justify-between gap-x-2">
           <dt className="text-slate-500">Roof Area</dt>
           <dd className="text-right font-medium text-slate-900">
             {option.roof_area_required_sqft.toLocaleString()} sq ft
           </dd>
         </div>
-        <div className="flex justify-between gap-2">
+        <div className="flex flex-wrap justify-between gap-x-2">
           <dt className="text-slate-500">Coverage</dt>
           <dd className="text-right font-medium text-slate-900">
             {option.generation_coverage_percent != null ? `${option.generation_coverage_percent}%` : '—'}

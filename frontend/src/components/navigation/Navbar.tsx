@@ -8,6 +8,7 @@ const NAV_LINKS = [
   { label: 'Assess', to: '/assess' },
   { label: 'Dashboard', to: '/dashboard' },
   { label: 'Location', to: '/location' },
+  { label: 'Monitoring', to: '/monitoring' },
   { label: 'AI Advisor', to: '/advisor' },
 ]
 
@@ -20,7 +21,7 @@ export function Navbar({ onOpenAdvisor }: NavbarProps) {
 
   const linkClasses = ({ isActive }: { isActive: boolean }) =>
     cn(
-      'rounded-full px-3 py-2 text-sm font-medium transition-colors',
+      'whitespace-nowrap rounded-full px-3 py-2 text-sm font-medium transition-colors',
       isActive ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900',
     )
 
@@ -31,7 +32,7 @@ export function Navbar({ onOpenAdvisor }: NavbarProps) {
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white">
             <Zap className="h-4 w-4" aria-hidden="true" />
           </span>
-          Renewable Advisor
+          SHREA AI
         </NavLink>
 
         <ul className="hidden items-center gap-1 md:flex">
@@ -48,10 +49,10 @@ export function Navbar({ onOpenAdvisor }: NavbarProps) {
           <button
             type="button"
             onClick={onOpenAdvisor}
-            className="hidden items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 sm:inline-flex"
+            className="hidden items-center gap-2 whitespace-nowrap rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 lg:inline-flex"
           >
             <Mic className="h-4 w-4" aria-hidden="true" />
-            Talk to Advisor
+            Talk to SHREA AI
           </button>
           <button
             type="button"
@@ -95,7 +96,7 @@ export function Navbar({ onOpenAdvisor }: NavbarProps) {
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white"
           >
             <Mic className="h-4 w-4" aria-hidden="true" />
-            Talk to Advisor
+            Talk to SHREA AI
           </button>
         </div>
       )}

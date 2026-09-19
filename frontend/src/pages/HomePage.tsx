@@ -3,18 +3,19 @@ import { Button } from '../components/buttons/Button'
 import { Section } from '../components/layout/Section'
 import { TechnologyCard } from '../components/cards/TechnologyCard'
 import { EnergyVisual } from '../components/visualizations/EnergyVisual'
+import { MonitoringSection } from '../components/monitoring/MonitoringSection'
 
 const TECHNOLOGIES = [
-  { icon: Sun, name: 'Solar', tagline: 'Rooftop or ground-mounted PV', gradient: 'from-amber-400 to-orange-500' },
-  { icon: Wind, name: 'Wind', tagline: 'Small-scale turbines', gradient: 'from-sky-400 to-blue-500' },
-  { icon: Zap, name: 'Hybrid', tagline: 'Solar + wind, combined', gradient: 'from-violet-400 to-fuchsia-500' },
-  { icon: BatteryCharging, name: 'Battery', tagline: 'Storage & backup', gradient: 'from-emerald-400 to-teal-500' },
+  { icon: Sun, name: 'Solar Energy', tagline: 'Generate electricity from sunlight.', gradient: 'from-amber-400 to-orange-500' },
+  { icon: Wind, name: 'Wind Energy', tagline: 'Generate electricity using local wind resources.', gradient: 'from-sky-400 to-blue-500' },
+  { icon: Zap, name: 'Hybrid Energy', tagline: 'Combine renewable sources for a more flexible energy setup.', gradient: 'from-violet-400 to-fuchsia-500' },
+  { icon: BatteryCharging, name: 'Battery Storage', tagline: 'Store renewable electricity for later use.', gradient: 'from-emerald-400 to-teal-500' },
 ]
 
 const STEPS = [
   { icon: MapPin, label: 'Share your location & building' },
   { icon: Settings2, label: 'Deterministic engines size your system' },
-  { icon: TrendingUp, label: 'Compare cost, savings & payback' },
+  { icon: TrendingUp, label: 'Compare technical options, tariffs & incentives' },
 ]
 
 export function HomePage() {
@@ -23,7 +24,7 @@ export function HomePage() {
       <Section className="grid items-center gap-10 pt-16 sm:pt-24 lg:grid-cols-2 lg:gap-12">
         <div className="text-center lg:text-left">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
-            Phase 1 — Foundation
+            SHREA AI
           </span>
           <h1 className="mt-5 text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
             Smarter energy decisions for your building.
@@ -70,6 +71,8 @@ export function HomePage() {
           ))}
         </div>
       </Section>
+
+      <MonitoringSection />
     </>
   )
 }
