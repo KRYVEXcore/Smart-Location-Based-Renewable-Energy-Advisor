@@ -890,8 +890,9 @@ Per this project's standing rule — **real data > no data > fake data** — a
 tariff is only seeded once its slabs, rates and charges were read from a
 primary official document (state regulator order or DISCOM publication)
 and the exact page/table is recorded. Verified and seeded (residential
-only): **Tamil Nadu** (TNPDCL), **Karnataka** (all ESCOMs), **Rajasthan**
-(all three DISCOMs) and **Maharashtra** (MSEDCL — verified, but Maharashtra
+only): **Tamil Nadu** (TNPDCL), **Andhra Pradesh** (all three DISCOMs,
+FY 2026-27), **Karnataka** (all ESCOMs), **Rajasthan** (all three DISCOMs)
+and **Maharashtra** (MSEDCL — verified, but Maharashtra
 locations resolve as DISCOM-`ambiguous` because Mumbai has other licensees,
 so it is reported as blocked, never guessed). Kerala was verified but is
 **not seeded**: its non-telescopic billing above 250 units/month cannot be

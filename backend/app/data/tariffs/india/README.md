@@ -16,6 +16,7 @@ what is and is not covered is in
 | Folder | Schedules | DISCOM scope |
 |---|---|---|
 | `tamil_nadu/` | `TN-TNPDCL-LT-IA-2025.07` | TNPDCL |
+| `andhra_pradesh/` | `AP-DISCOMS-LT-I-A-FY2026-27` | state level (all three DISCOMs) |
 | `maharashtra/` | `MH-MSEDCL-LT-IB-FY2025-26`, `MH-MSEDCL-LT-IB-FY2026-27` | MSEDCL |
 | `karnataka/` | `KA-ESCOMS-LT1-FY2025-26`, `KA-ESCOMS-LT1-FY2026-27` | state level (all ESCOMs) |
 | `rajasthan/` | `RJ-DISCOMS-LT1-FY2025-26-H2`, `RJ-DISCOMS-LT1-FY2026-27` | state level (all DISCOMs) |

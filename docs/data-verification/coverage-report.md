@@ -27,11 +27,12 @@ seeded rather than seeded wrongly):
 | State | DISCOM scope | Versions | Usable for a location? |
 |---|---|---|---|
 | Tamil Nadu | TNPDCL (single DISCOM, identified) | 2025-07-01 onward | **Yes.** Approved tariff before the Government subsidy |
+| Andhra Pradesh | State level (common to APSPDCL, APCPDCL, APEPDCL) | FY2026-27 only (to 2027-03-31) | **Yes**, energy charge only: the per-kW fixed charge is not billed |
 | Karnataka | State level (common to all ESCOMs) | FY2025-26, FY2026-27 | **Yes**, energy charge only: the per-kW fixed charge is not billed |
 | Rajasthan | State level (common to JVVNL, AVVNL, JdVVNL) | from 2025-10-01, FY2026-27 | **Yes** |
 | Maharashtra | MSEDCL | FY2025-26, FY2026-27 | **Data verified, but not usable automatically**: four licensees are registered, so every Maharashtra location resolves as `ambiguous` |
 
-Verified tariff datasets: **7 schedules** across **4 states**, one category (residential).
+Verified tariff datasets: **8 schedules** across **5 states**, one category (residential).
 
 ## C. Verified incentive coverage
 
@@ -47,6 +48,8 @@ DISCOM programmes verified: **0**.
 | Item | Status |
 |---|---|
 | Kerala tariff (KSERC order of 05.12.2024 read and understood) | Not seeded: engine cannot bill it correctly (see A) |
+| Gujarat tariff (GERC schedule effective 1 April 2026 read) | Not seeded: RGP and RGP (Rural) rates differ and the app cannot tell which applies |
+| Delhi, Telangana | `NOT_VERIFIED`: controlling order not identified / read |
 | Non-residential tariffs (commercial, educational, public service, industrial, agriculture) for every state | `NOT_VERIFIED`: not seeded; the app cannot pick the right category without inputs it does not collect |
 | Karnataka LT-2 (private educational institutions) | Not seeded: government-run colleges are billed under LT-1, and ownership is not collected |
 | State incentives in Tamil Nadu, Maharashtra, Karnataka, Kerala, Rajasthan | `NOT_FOUND` in any official order, notification or agency page |
@@ -56,11 +59,11 @@ DISCOM programmes verified: **0**.
 
 ## E. Research pending (not yet attempted)
 
-Tariff research has **not** been done for: Andhra Pradesh, Arunachal Pradesh, Assam, Bihar,
-Chhattisgarh, Goa, Gujarat, Haryana, Himachal Pradesh, Jharkhand, Madhya Pradesh, Manipur,
-Meghalaya, Mizoram, Nagaland, Odisha, Punjab, Sikkim, Telangana, Tripura, Uttar Pradesh,
-Uttarakhand, West Bengal, Andaman and Nicobar Islands, Chandigarh, Dadra and Nagar Haveli and
-Daman and Diu, Delhi, Jammu and Kashmir, Ladakh, Lakshadweep, Puducherry.
+Tariff research has **not** been done for: Arunachal Pradesh, Assam, Bihar, Chhattisgarh, Goa,
+Haryana, Himachal Pradesh, Jharkhand, Madhya Pradesh, Manipur, Meghalaya, Mizoram, Nagaland,
+Odisha, Punjab, Sikkim, Tripura, Uttar Pradesh, Uttarakhand, West Bengal, Andaman and Nicobar
+Islands, Chandigarh, Dadra and Nagar Haveli and Daman and Diu, Jammu and Kashmir, Ladakh,
+Lakshadweep, Puducherry.
 
 For all of these the API answers `tariff_not_configured` (no bill is shown, never a
 placeholder or an average). State-level incentives are likewise not researched beyond the five
@@ -73,5 +76,6 @@ priority states.
   page.
 - **PM Surya Ghar**: implementation period ends 2027-03-31; an extension or new guideline
   would need a new version row.
+- **Andhra Pradesh**: the schedule is for FY 2026-27 only and stops applying after 2027-03-31; the domestic rates are contingent on the State Government paying the subsidy (para 211).
 - **Karnataka**: BESCOM published notice of a new tariff petition in September 2026.
 - **Kerala**: the KSERC order is subject to a High Court writ outcome (WP(C) 34202 of 2024).

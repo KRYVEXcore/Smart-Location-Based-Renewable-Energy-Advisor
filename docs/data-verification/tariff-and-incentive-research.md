@@ -102,11 +102,42 @@ confirm they are looking at the same file.
 
 KSERC Order dated 05.12.2024 in OP No. 18/2023 (https://kseb.in/uploads/Subsubmenu/Latest%20Tariff%20Orders0912202411:17:56.pdf, SHA-256 `b44c477acdd63b00...`) approves the schedule for 05.12.2024 to 31.03.2027. Domestic energy charges are telescopic up to 250 units/month and **non-telescopic** above (the whole month billed at one bracket rate), and the fixed charge depends on the monthly consumption bracket. The engine only supports progressive slabs, so seeding it would compute wrong bills for consumption above 250 units. Status: **NOT SEEDED - PENDING_REVIEW** until the engine supports non-telescopic billing.
 
-### A6. Other states / UTs
+### A6. Additional states examined after the five priority states
 
-Not researched in this phase: Andhra Pradesh, Arunachal Pradesh, Assam, Bihar, Chhattisgarh, Goa, Gujarat, Haryana, Himachal Pradesh, Jharkhand, Madhya Pradesh, Manipur, Meghalaya, Mizoram, Nagaland, Odisha, Punjab, Sikkim, Telangana, Tripura, Uttar Pradesh, Uttarakhand, West Bengal and all Union Territories. Status **NOT_VERIFIED**; no rows exist for them.
+#### Andhra Pradesh - all three DISCOMs - Category I(A) Domestic (Telescopic) - VERIFIED, seeded
 
-### A7. Non-residential categories
+| Field | Value |
+|---|---|
+| Jurisdiction / DISCOM | Andhra Pradesh / one common schedule for APSPDCL, APCPDCL, APEPDCL (state-level row) |
+| Category | I Domestic (A): Domestic (Telescopic) -> `residential` |
+| Version | `AP-DISCOMS-LT-I-A-FY2026-27`, effective **2026-04-01 to 2027-03-31** (single financial year) |
+| Source organisation | Andhra Pradesh Electricity Regulatory Commission (APERC), as published by APSPDCL and APEPDCL |
+| Document | APERC Order on Tariff for Retail Sale of Electricity during FY 2026-27 & DISCOMs' True up/Down and Performance Review FY 2024-25, dated **25th March 2026** (cover page; no separate petition number is printed on it) |
+| Official URL | https://www.apspdcl.in/files/regulatory/Tariff%20Order%20for%20the%20year%202026-27.pdf (full 466-page file, listed on https://www.apspdcl.in/electricity-tariff.php); excerpt on https://www.apeasternpower.com/RegulatoryTariffOrders ("Tariff Schedule, Cross subsidy Surcharge for FY2026-27") |
+| Page / table | Chapter XI, Table 11, "Page 172 of 440" in the order's own numbering (PDF page 196 of the APSPDCL file). Paras 209-212 on pages 171 and 224 |
+| Rates | Fixed Rs 10 (per kW, see note) for every slab; energy Rs/unit: 0-30 kWh 1.90; 31-75 3.00; 76-125 4.50; 126-225 6.00; 226-400 8.75; above 400 9.75 |
+| Effective | Table 11 heading and para 212: "w.e.f. 01-04-2026 to 31-03-2027" |
+| Cross-check | Two different DISCOMs' own copies (APEPDCL excerpt and APSPDCL full order) print identical Table 11 values. APERC's own website could not be opened (JavaScript-only), so APERC's copy was not read. |
+| Caveats | Para 211: domestic LT rates are "contingent on payment of subsidy as agreed by the GoAP"; otherwise the full-cost-recovery schedule (Chapter X) becomes operative. The fixed-charge column is headed "Rs/HP or Rs./kW"; for domestic it is treated as per kW of sanctioned load, not billed. No corrigendum was listed on the DISCOM tariff pages. |
+| Status | **VERIFIED** |
+
+#### Gujarat - GERC tariff schedule for DGVCL, MGVCL, PGVCL, UGVCL - verified data, **NOT SEEDED**
+
+GERC's "Tariff Schedule of Four State Owned DISCOMs", effective 1st April 2026 (https://gercin.org/viewdocument/dGFyaWZmc2NoZWR1bGVfcGRmXzE3ODYwOTcyMjFfNzk2NA==, SHA-256 `b27718f7cfa36349...`, page 3-4) and effective 1st April 2025 (https://gercin.org/viewdocument/dGFyaWZmc2NoZWR1bGVfcGRmXzE3NjkwODM4OTJfMjQ0MQ==, SHA-256 `b95a732979fc49d6...`) were read. For FY 2026-27, residential "RGP" post-paid energy is 305/350/415/520 paise for the first 50 / next 50 / next 150 / above 250 units, and "RGP (Rural)" (premises inside a Gram Panchayat area) is 265/310/375/490 paise. The two differ, and whether a premises is inside a Gram Panchayat is not something this app can determine, so applying either would be a guess. The fixed charge (Rs 15/25/45/70 by connected load) also needs data the app does not collect. Status: **NOT SEEDED - PENDING_REVIEW**, until the app can tell rural (Gram Panchayat) from urban premises.
+
+#### Delhi - DERC - NOT_VERIFIED
+
+DERC's tariff-orders page (https://www.derc.gov.in/tarriff-orders) lists only true-up orders as its newest entries (31/12/2025 and earlier). The order that currently controls the retail tariff schedule was not identified with confidence, so nothing was read as authoritative. Status: **NOT_VERIFIED**.
+
+#### Telangana - TGERC - NOT_VERIFIED
+
+Official TGERC/TGSPDCL pages were located (an interim order continuing existing tariffs for FY 2025-26, and a reference to a FY 2026-27 tariff schedule in Table 3-52) but the controlling FY 2026-27 order and its schedule were not read. Status: **NOT_VERIFIED**.
+
+### A7. Other states / UTs
+
+Not researched in this phase: Arunachal Pradesh, Assam, Bihar, Chhattisgarh, Goa, Haryana, Himachal Pradesh, Jharkhand, Madhya Pradesh, Manipur, Meghalaya, Mizoram, Nagaland, Odisha, Punjab, Sikkim, Tripura, Uttar Pradesh, Uttarakhand, West Bengal and the Union Territories other than Delhi. Status **NOT_VERIFIED**; no rows exist for them.
+
+### A8. Non-residential categories
 
 Commercial, educational and other tariff categories were **not** seeded for any state. Each state uses different category definitions (Karnataka's LT-1/LT-2 split above, Rajasthan's NDS types, Maharashtra's kW-band categories, Tamil Nadu's LT V) and the assessment does not collect the fields (sanctioned load, ownership) needed to pick one. No residential rate is ever reused for a college or shop.
 

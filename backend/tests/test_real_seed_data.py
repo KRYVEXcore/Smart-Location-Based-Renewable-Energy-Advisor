@@ -112,6 +112,7 @@ def test_every_tariff_is_scoped_to_exactly_one_state_and_category_is_residential
 
 def test_only_researched_jurisdictions_have_tariffs():
     assert sorted({schedule.state for _, schedule in TARIFFS}) == [
+        "Andhra Pradesh",
         "Karnataka",
         "Maharashtra",
         "Rajasthan",
@@ -179,6 +180,23 @@ def test_karnataka_950_kwh_fixed_charge_is_never_billed_without_sanctioned_load(
     assert result.estimated_monthly_bill_inr == "5510.00"
     assert result.is_partial_estimate is True
     assert "fixed_charge_not_calculated" in result.excluded_components
+
+
+def test_andhra_pradesh_950_kwh_fy2026_27_telescopic_slabs():
+    # 30 @ 1.90 + 45 @ 3.00 + 50 @ 4.50 + 100 @ 6.00 + 175 @ 8.75 + 550 @ 9.75
+    # = 57.00 + 135.00 + 225.00 + 600.00 + 1531.25 + 5362.50 = 7910.75
+    result = _bill("Andhra Pradesh", "950", date(2026, 9, 19))
+
+    assert _component(result, "energy").amount_inr == "7910.75"
+    fixed = _component(result, "fixed")
+    assert fixed.status == "not_calculated" and fixed.amount_inr is None
+    assert result.estimated_monthly_bill_inr == "7910.75"
+
+
+def test_andhra_pradesh_tariff_stops_at_the_end_of_the_order_year():
+    assert _bill("Andhra Pradesh", "300", date(2027, 3, 31)).status == "ok"
+    assert _bill("Andhra Pradesh", "300", date(2027, 4, 1)).status == "tariff_not_configured"
+    assert _bill("Andhra Pradesh", "300", date(2026, 3, 31)).status == "tariff_not_configured"
 
 
 @pytest.mark.parametrize(

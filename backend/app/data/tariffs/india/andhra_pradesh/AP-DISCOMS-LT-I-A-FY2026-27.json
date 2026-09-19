@@ -1,0 +1,35 @@
+{
+  "state": "Andhra Pradesh",
+  "union_territory": null,
+  "discom_short_code": null,
+  "consumer_category": "residential",
+  "tariff_version": "AP-DISCOMS-LT-I-A-FY2026-27",
+  "tariff_name": "Andhra Pradesh DISCOMs Category I(A) Domestic (Telescopic) - FY 2026-27",
+  "effective_from": "2026-04-01",
+  "effective_to": "2027-03-31",
+  "fixed_charge_basis": "inr_per_kw_per_month",
+  "verification_status": "verified",
+  "active": true,
+  "source": {
+    "name": "Andhra Pradesh Electricity Regulatory Commission (APERC), published by APSPDCL and APEPDCL",
+    "url": "https://www.apspdcl.in/files/regulatory/Tariff%20Order%20for%20the%20year%202026-27.pdf",
+    "document": "APERC Order on Tariff for Retail Sale of Electricity during FY 2026-27 & DISCOMs' True up/Down and Performance Review FY 2024-25, dated 25th March 2026",
+    "order_number": "APERC Order on Tariff for Retail Sale of Electricity during FY 2026-27 (25 March 2026)",
+    "order_date": "2026-03-25",
+    "page": "Page 172 of 440 in the order's own numbering (PDF page 196 of the 466-page APSPDCL file); paras 209-212 on pages 171 and 224",
+    "table": "Chapter XI, Table 11: Tariff for Retail Sale of Electricity during FY 2026-27 - I Domestic, (A): Domestic (Telescopic)",
+    "section": "Chapter XI Retail Supply Tariff Schedule, paras 207-212",
+    "excerpt": "Table 11 (applicable with effect from 01.04.2026 to 31.03.2027 in respect of three distribution licensees: APSPDCL, APCPDCL and APEPDCL). I Domestic (A) Domestic (Telescopic), fixed Rs 10 for every slab, energy Rs/unit: 0-30 kWh 1.90; 31-75 3.00; 76-125 4.50; 126-225 6.00; 226-400 8.75; >400 9.75. Para 212: 'shall be applicable in the areas of operation of 3 (three) Distribution Companies ... w.e.f. 01-04-2026 to 31-03-2027.'",
+    "last_verified": "2026-09-19"
+  },
+  "verification_notes": "Common tariff for all three AP DISCOMs (APSPDCL, APCPDCL, APEPDCL): Table 11 and para 212 apply to all three, so this is a state-level row. Cross-checked between two DISCOMs' own publications of the order: APEPDCL's 'Retail Tariff-T&C for FY2026-27' excerpt (https://www.apeasternpower.com, Chapter XI, page 172 of 440) and APSPDCL's full 466-page 'Tariff Order for the year 2026-27' (https://www.apspdcl.in/electricity-tariff.php); both print identical Table 11 values. The APERC website could not be opened from the research environment, so APERC's own copy was not read. The order carries no separate petition number on its cover; it is identified by its title and date (25 March 2026). The order is for one financial year only (01.04.2026 to 31.03.2027), so effective_to is set and the tariff stops applying after that date until a new order is added. No corrigendum was listed on the APSPDCL/APEPDCL tariff pages. Para 211: the domestic (LT) rates are 'contingent on payment of subsidy as agreed by the GoAP'; otherwise the full-cost-recovery schedule of Chapter X becomes operative. The fixed-charge column is headed 'Rs/HP or Rs./kW'; for domestic connections it is applied per kW of sanctioned load, which this app does not collect, so it is recorded with that basis and is not billed. Electricity duty, FPPCA and other surcharges are not modelled."
+  ,
+  "slabs": [
+    { "slab_min_kwh": 0, "slab_max_kwh": 30, "energy_charge_inr_per_kwh": 1.90, "fixed_charge_inr": 10 },
+    { "slab_min_kwh": 30, "slab_max_kwh": 75, "energy_charge_inr_per_kwh": 3.00, "fixed_charge_inr": 10 },
+    { "slab_min_kwh": 75, "slab_max_kwh": 125, "energy_charge_inr_per_kwh": 4.50, "fixed_charge_inr": 10 },
+    { "slab_min_kwh": 125, "slab_max_kwh": 225, "energy_charge_inr_per_kwh": 6.00, "fixed_charge_inr": 10 },
+    { "slab_min_kwh": 225, "slab_max_kwh": 400, "energy_charge_inr_per_kwh": 8.75, "fixed_charge_inr": 10 },
+    { "slab_min_kwh": 400, "slab_max_kwh": null, "energy_charge_inr_per_kwh": 9.75, "fixed_charge_inr": 10 }
+  ]
+}

@@ -23,6 +23,10 @@ OFFICIAL_HOSTS: frozenset[str] = frozenset(
         "www.kseb.in",
         "www.erckerala.org",  # Kerala State Electricity Regulatory Commission
         "erckerala.org",
+        "www.apspdcl.in",  # Southern Power Distribution Company of A.P. Ltd (DISCOM)
+        "apspdcl.in",
+        "www.apeasternpower.com",  # Eastern Power Distribution Company of A.P. Ltd (DISCOM)
+        "apeasternpower.com",
     }
 )
 
