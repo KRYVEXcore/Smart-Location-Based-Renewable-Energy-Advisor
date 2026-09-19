@@ -1124,6 +1124,10 @@ renewable-energy calculation engines**, and it never invents tariffs, incentives
 values, costs, savings or live readings. Details, limits and cost controls:
 [docs/ai-advisor.md](docs/ai-advisor.md).
 
+**Voice (Phase 9).** The chat has an opt-in microphone: speech is turned into text for the same advisor
+request, and replies are spoken back with the browser's speech synthesis. It is an input/output layer only;
+see the voice section of the same document. Frontend logic tests: `npm test` in `frontend/`.
+
 **Monitoring.** `/monitoring` and the homepage "Monitor Your Existing Renewable System" section
 have no device integration or telemetry store: they show an honest "No monitoring system
 connected" state, and the homepage dashboard is an explicitly labelled **UI Preview** with

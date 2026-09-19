@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, Bot, Info, Loader2, Send } from 'lucide-react'
+import { AlertTriangle, Bot, Info, Loader2, Mic, Send, Square } from 'lucide-react'
 import { NOT_CONNECTED_TEXT, useAdvisorChat } from '../../hooks/useAdvisorChat'
+import { useVoiceConversation } from '../../hooks/useVoiceConversation'
+import type { VoiceState } from '../../voice/voiceController'
 import { cn } from '../../utils/cn'
 
 interface AdvisorChatProps {
@@ -44,6 +46,19 @@ export function AdvisorChat({ assessmentId, className }: AdvisorChatProps) {
   )
 }
 
+const VOICE_STATUS_TEXT: Record<VoiceState, string | null> = {
+  idle: 'Tap to talk',
+  requesting_permission: 'Waiting for microphone permission…',
+  listening: 'Listening…',
+  processing: 'Thinking…',
+  speaking: 'SHREA is speaking…',
+  stopped: 'Voice stopped. Tap to talk',
+  unsupported: null,
+  error: null,
+}
+
+const SESSION_STATES: VoiceState[] = ['requesting_permission', 'listening', 'processing', 'speaking']
+
 function AssessmentChat({ assessmentId }: { assessmentId: string }) {
   const { overview, overviewFailed, messages, status, error, send } = useAdvisorChat(assessmentId)
   const [draft, setDraft] = useState('')
@@ -51,6 +66,9 @@ function AssessmentChat({ assessmentId }: { assessmentId: string }) {
   const isLoading = status === 'loading'
   const notConnected = overview?.ai_configured === false || status === 'not_configured'
   const canSend = draft.trim().length > 0 && !isLoading && !notConnected
+  const voice = useVoiceConversation({ send, status, messages, setDraft })
+  const voiceInSession = SESSION_STATES.includes(voice.state)
+  const voiceText = voice.message ?? VOICE_STATUS_TEXT[voice.state]
 
   useEffect(() => {
     // Scrolls the chat box itself, never the page.
@@ -60,6 +78,7 @@ function AssessmentChat({ assessmentId }: { assessmentId: string }) {
 
   function submit(text: string) {
     if (isLoading || notConnected || !text.trim()) return
+    if (voiceInSession) voice.stop()
     send(text)
     setDraft('')
   }
@@ -168,6 +187,41 @@ function AssessmentChat({ assessmentId }: { assessmentId: string }) {
         )}
       </div>
 
+      {!notConnected && voiceText && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-2 border-t border-slate-100 px-4 py-2 text-xs text-slate-500"
+        >
+          {voice.state === 'processing' && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-emerald-600" aria-hidden="true" />}
+          {voice.state === 'listening' && <Mic className="h-3.5 w-3.5 shrink-0 animate-pulse text-emerald-600" aria-hidden="true" />}
+          {voice.state === 'speaking' && (
+            // Decorative only: not driven by any audio measurement.
+            <span aria-hidden="true" className="flex h-3.5 shrink-0 items-end gap-0.5">
+              {[0, 1, 2, 3].map((bar) => (
+                <span
+                  key={bar}
+                  className="w-0.5 animate-pulse rounded-full bg-emerald-600"
+                  style={{ height: bar % 2 === 0 ? '55%' : '100%', animationDelay: `${bar * 150}ms` }}
+                />
+              ))}
+            </span>
+          )}
+          <span className="min-w-0 flex-1 break-words">{voiceText}</span>
+          {voiceInSession && (
+            <button
+              type="button"
+              onClick={voice.stop}
+              aria-label="Stop voice conversation"
+              className="flex shrink-0 items-center gap-1 rounded-full border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+            >
+              <Square className="h-3 w-3" aria-hidden="true" />
+              Stop
+            </button>
+          )}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="flex items-end gap-2 border-t border-slate-200 p-4">
         <label htmlFor="advisor-chat-input" className="sr-only">
           Message SHREA AI
@@ -183,6 +237,31 @@ function AssessmentChat({ assessmentId }: { assessmentId: string }) {
           placeholder={notConnected ? NOT_CONNECTED_TEXT : 'Ask SHREA AI…'}
           className="min-w-0 flex-1 resize-none rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:bg-slate-50"
         />
+        {voice.supported && (
+          <button
+            type="button"
+            onClick={voice.state === 'listening' || voice.state === 'requesting_permission' ? voice.stop : voice.start}
+            disabled={notConnected || isLoading || voice.state === 'processing'}
+            aria-label={
+              voice.state === 'listening' || voice.state === 'requesting_permission'
+                ? 'Stop listening'
+                : voice.state === 'speaking'
+                  ? 'Interrupt SHREA and speak'
+                  : voice.state === 'processing'
+                    ? 'SHREA is thinking'
+                    : 'Start voice input'
+            }
+            aria-pressed={voice.state === 'listening' || voice.state === 'requesting_permission'}
+            className={
+              'flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 ' +
+              (voice.state === 'listening'
+                ? 'animate-pulse border-emerald-600 bg-emerald-50 text-emerald-700'
+                : 'border-slate-200 text-slate-600 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700')
+            }
+          >
+            <Mic className="h-4 w-4" aria-hidden="true" />
+          </button>
+        )}
         <button
           type="submit"
           disabled={!canSend}

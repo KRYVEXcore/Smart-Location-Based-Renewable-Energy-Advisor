@@ -103,6 +103,35 @@ compact context (~1-2k tokens); last 6 turns; 800-token output cap; 30-second ti
 rate limits (10/min per assessment, 30/min overall - per process, assumes one API instance);
 mocked tests; only a handful of real verification requests.
 
+## Voice conversation (Phase 9)
+
+Voice is only an input/output layer around the existing chat. The advisor API, NVIDIA adapter,
+prompt, rate limits and security model are unchanged, and the browser never holds any AI key.
+
+- **Flow:** microphone -> browser speech recognition -> final text -> the same `send()` used for
+  typed messages (one `POST /api/v1/advisor/chat`) -> the reply appears as a normal SHREA message
+  -> it is spoken with `speechSynthesis` -> listening resumes -> repeat until Stop.
+- **States:** `idle`, `requesting_permission`, `listening`, `processing`, `speaking`, `stopped`,
+  `unsupported`, `error` (`frontend/src/voice/voiceController.ts`, DOM-free and unit tested).
+- **Never automatic:** the microphone starts only when the user presses it, and re-listening
+  continues only inside a session the user started. Stop, closing the chat, or any error ends it.
+  A silence, an error or a failed advisor request ends the session instead of looping.
+- **Cost:** exactly one advisor request per finished utterance. Interim results only fill the input
+  box and are never sent; repeated recognition events cannot resubmit; there is no frontend retry
+  (the backend's single 503 retry is unchanged). Replies to typed messages are never spoken.
+- **Recognition:** `SpeechRecognition` / `webkitSpeechRecognition`, `en-IN` (`VOICE_LANGUAGE`).
+  **Privacy:** the browser sends audio to its own recognition service (in Chrome and Edge this is
+  a cloud service). SHREA does not record, store or upload audio; it only receives text.
+- **Speech:** `speechSynthesis`, preferring an English (India) voice, then any English voice
+  (no fixed voice name), rate 1 and pitch 1. Replies are stripped of `**`, `*`, `#` and backticks
+  and queued as sentence-sized chunks (engines cut off very long utterances).
+- **Interrupt:** pressing the microphone while SHREA speaks cancels the speech queue and listens.
+- **Fallbacks:** no recognition -> a short note and the text chat is untouched; permission denied,
+  no microphone, network or engine errors -> a short note, text chat still works; speech failure
+  -> the text answer stays visible.
+- **Tests:** `npm test` (Node's built-in runner, no new dependency) covers the state machine with
+  fakes; the real microphone and speaker path needs a manual test in Chrome or Edge.
+
 ## Limitations
 
 - The chat history lives in the browser only and is lost when the panel closes.
