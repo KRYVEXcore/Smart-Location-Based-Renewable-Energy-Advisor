@@ -408,6 +408,7 @@ All under `API_V1_PREFIX` (`/api/v1`):
 | GET    | `/locations/search`     | Geocode a place name (`?q=...`)          |
 | GET    | `/locations/profile`    | Normalized solar/wind/weather/elevation data, plus India location resolution (state/UT/district/city/DISCOM), for a coordinate (`?latitude=...&longitude=...`) |
 | POST   | `/solar/calculate`      | Technical solar system options for an assessment (`{"assessment_id": "..."}`) |
+| POST   | `/wind/calculate`       | Technical wind screening for an assessment (`{"assessment_id": "..."}`) |
 | POST   | `/tariffs/calculate`    | Estimated baseline electricity bill for an assessment (`{"assessment_id": "...", "calculation_date": "YYYY-MM-DD"}`, date optional) |
 | GET    | `/tariffs`              | Filtered tariff slab lookup (`?state=...&union_territory=...&consumer_category=...&discom_id=...`) |
 | POST   | `/incentives/evaluate`  | Incentive eligibility for an assessment (`{"assessment_id": "...", "technology": "solar", "proposed_capacity_kw": 3, "calculation_date": "YYYY-MM-DD"}`, date optional) |
@@ -1096,6 +1097,20 @@ evaluation is recorded to `IncentiveEvaluationSnapshot` (`ON DELETE
 CASCADE` on the owning assessment, same pattern as `SolarCalculationSnapshot`
 and `TariffCalculationSnapshot`).
 
+## Wind Engine (Phase 7)
+
+`POST /api/v1/wind/calculate` estimates annual generation for candidate
+0.5 / 1 / 2 / 3 / 5 / 10 kW turbines from the Phase 3 wind resource
+(NASA POWER 2001-2020 climatology, m/s, 10 m reading used, 50 m shown only),
+a generic reference power curve and a Rayleigh speed distribution. Assumptions
+are versioned (`wind-assumptions-2026.1`); results are snapshotted to
+`wind_calculation_snapshots`. No wind resource -> `wind_resource_unavailable`,
+never a default speed. **Technical screening only — structural/site approval is
+required. This is a preliminary software screening model, not a certified wind
+resource assessment or structural/site engineering assessment.** No cost,
+subsidy, savings or payback. Full method, curve, thresholds and limitations:
+[docs/wind-engine.md](docs/wind-engine.md).
+
 ## Security Notes (Phases 2-6)
 
 - No authentication yet. `app/services/prototype_user.py` centralizes a
@@ -1116,7 +1131,12 @@ and `TariffCalculationSnapshot`).
 
 ## Current Development Phase
 
-**CURRENT PHASE: Phase 6 — India Renewable Energy Incentive Engine, complete**
+**CURRENT PHASE: Phase 7 — India-Based Wind Engine, complete** (see
+[Wind Engine (Phase 7)](#wind-engine-phase-7); the Phase 6 description below is
+unchanged, except that wind *technical screening* now exists — no
+hybrid/battery, recommendation, or financial engine yet)
+
+**Phase 6 — India Renewable Energy Incentive Engine**
 
 Phase 1 established the monorepo, frontend UI, and backend foundation.
 Phase 2 turned the assessment UI into a real backend-backed system with
@@ -1159,7 +1179,7 @@ engine, AI, voice, or ML is implemented yet.
 - Phase 4 — India-Based Solar Engine ✅
 - Phase 5 — India Electricity Tariff Engine ✅
 - Phase 6 — India Renewable Energy Incentive Engine ✅
-- Phase 7 — Wind Engine
+- Phase 7 — India-Based Wind Engine ✅
 - Phase 8 — Hybrid + Battery
 - Phase 9 — Recommendation Engine
 - Phase 10 — Financial Engine

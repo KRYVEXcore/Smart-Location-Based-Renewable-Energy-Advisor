@@ -1,1 +1,3 @@
-"""Small wind sizing and generation calculations will be implemented in Phase 5."""
+from app.engines.wind.engine import calculate
+
+__all__ = ["calculate"]

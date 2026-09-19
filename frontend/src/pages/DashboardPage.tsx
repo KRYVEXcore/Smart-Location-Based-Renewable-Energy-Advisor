@@ -18,12 +18,14 @@ import { MetricCard } from '../components/metrics/MetricCard'
 import { ComparisonCard } from '../components/cards/ComparisonCard'
 import { LocationIntelligenceSection } from '../components/location/LocationIntelligenceSection'
 import { SolarAnalysisSection } from '../components/solar/SolarAnalysisSection'
+import { WindAnalysisSection } from '../components/wind/WindAnalysisSection'
 import { ElectricityTariffSection } from '../components/tariff/ElectricityTariffSection'
 import { GovernmentIncentivesSection } from '../components/incentive/GovernmentIncentivesSection'
 import { getAssessment } from '../services/assessmentService'
 import { ApiError } from '../services/apiClient'
 import { useLocationProfile } from '../hooks/useLocationProfile'
 import { useSolarCalculation } from '../hooks/useSolarCalculation'
+import { useWindCalculation } from '../hooks/useWindCalculation'
 import { useTariffCalculation } from '../hooks/useTariffCalculation'
 import { useIncentiveEvaluation } from '../hooks/useIncentiveEvaluation'
 import type { AssessmentResponse } from '../types/assessmentApi'
@@ -59,6 +61,7 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const { profile, status: profileStatus, fetchProfile } = useLocationProfile()
   const { result: solarResult, status: solarStatus, runCalculation } = useSolarCalculation()
+  const { result: windResult, status: windStatus, runCalculation: runWindCalculation } = useWindCalculation()
   const { result: tariffResult, status: tariffStatus, runCalculation: runTariffCalculation } = useTariffCalculation()
   const { result: incentiveResult, status: incentiveStatus, runEvaluation: runIncentiveEvaluation } = useIncentiveEvaluation()
 
@@ -106,10 +109,11 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
 
     if (assessment && locationSettled) {
       runCalculation(assessment.id)
+      runWindCalculation(assessment.id)
       runTariffCalculation(assessment.id)
       runIncentiveEvaluation(assessment.id, DEFAULT_INCENTIVE_TECHNOLOGY, DEFAULT_INCENTIVE_CAPACITY_KW)
     }
-  }, [assessment, profileStatus, runCalculation, runTariffCalculation, runIncentiveEvaluation])
+  }, [assessment, profileStatus, runCalculation, runWindCalculation, runTariffCalculation, runIncentiveEvaluation])
 
   if (loadState === 'empty') {
     return (
@@ -230,6 +234,30 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
       {hasCoordinates && solarResult && (
         <div className="mt-5">
           <SolarAnalysisSection result={solarResult} />
+        </div>
+      )}
+
+      <h2 className="mt-12 text-xl font-bold text-slate-900">Wind analysis</h2>
+      {!hasCoordinates && (
+        <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
+          This assessment doesn&apos;t have saved coordinates, so wind analysis can&apos;t be
+          calculated automatically.
+        </div>
+      )}
+      {hasCoordinates && windStatus === 'loading' && (
+        <div className="mt-5 flex items-center gap-2 text-sm text-slate-500">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          Calculating wind screening…
+        </div>
+      )}
+      {hasCoordinates && windStatus === 'error' && (
+        <p className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          Wind analysis is unavailable right now. Please check your internet connection.
+        </p>
+      )}
+      {hasCoordinates && windResult && (
+        <div className="mt-5">
+          <WindAnalysisSection result={windResult} />
         </div>
       )}
 

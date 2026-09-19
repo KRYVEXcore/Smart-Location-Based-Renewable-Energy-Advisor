@@ -21,6 +21,7 @@ from app.models.location_resource_snapshot import LocationResourceSnapshot
 from app.models.solar_calculation_snapshot import SolarCalculationSnapshot
 from app.models.tariff_calculation_snapshot import TariffCalculationSnapshot
 from app.models.user import User
+from app.models.wind_calculation_snapshot import WindCalculationSnapshot
 
 __all__ = [
     "Assessment",
@@ -44,4 +45,5 @@ __all__ = [
     "TariffCalculationSnapshot",
     "TariffConsumerCategory",
     "User",
+    "WindCalculationSnapshot",
 ]
