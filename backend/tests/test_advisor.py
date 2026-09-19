@@ -602,6 +602,145 @@ def test_adapter_rejects_malformed_provider_responses(handler):
     assert error.value.code == "invalid_response"
 
 
+# ---- the single bounded retry for HTTP 503 ---------------------------------
+
+
+@pytest.fixture()
+def sleeps(monkeypatch):
+    calls = []
+    monkeypatch.setattr("app.services.ai.provider.time.sleep", calls.append)
+    return calls
+
+
+def _sequence(*outcomes):
+    """A handler answering with each outcome in turn: an int is an HTTP status, an exception is raised."""
+    requests = []
+
+    def handler(request):
+        outcome = outcomes[len(requests)]
+        requests.append(request)
+        if isinstance(outcome, Exception):
+            raise outcome
+        if outcome == 200:
+            return httpx.Response(200, json={"choices": [{"message": {"content": "answer"}}]})
+        return httpx.Response(outcome, text=f"upstream body {API_KEY}")
+
+    return handler, requests
+
+
+def test_a_503_is_retried_once_and_a_following_200_succeeds(sleeps):
+    from app.services.ai.provider import RETRY_DELAY_SECONDS
+
+    handler, requests = _sequence(503, 200)
+
+    assert _provider(handler).complete("s", [{"role": "user", "content": "q"}]) == "answer"
+    assert len(requests) == 2
+    assert requests[0].content == requests[1].content  # the same request, one call's worth of tokens
+    assert sleeps == [RETRY_DELAY_SECONDS] and 0.5 <= RETRY_DELAY_SECONDS <= 1.5
+
+
+def test_a_second_503_becomes_provider_error_and_there_is_no_third_attempt(sleeps):
+    handler, requests = _sequence(503, 503, 200)
+
+    with pytest.raises(AIProviderError) as error:
+        _provider(handler).complete("s", [])
+
+    assert error.value.code == "provider_error" and API_KEY not in str(error.value)
+    assert len(requests) == 2 and len(sleeps) == 1
+
+
+@pytest.mark.parametrize(
+    "status, code",
+    [
+        (400, "provider_error"),
+        (404, "provider_error"),
+        (409, "provider_error"),
+        (422, "provider_error"),
+        (429, "rate_limited"),
+        (401, "auth_failed"),
+        (403, "auth_failed"),
+        (500, "provider_error"),
+        (502, "provider_error"),
+        (504, "provider_error"),
+    ],
+)
+def test_only_503_is_retried(sleeps, status, code):
+    handler, requests = _sequence(status, 200)
+
+    with pytest.raises(AIProviderError) as error:
+        _provider(handler).complete("s", [])
+
+    assert error.value.code == code
+    assert len(requests) == 1 and sleeps == []
+
+
+@pytest.mark.parametrize(
+    "outcome, code",
+    [
+        (429, "rate_limited"),
+        (401, "auth_failed"),
+        (500, "provider_error"),
+        (httpx.ReadTimeout("slow"), "timeout"),
+        (httpx.ConnectError("down"), "network_error"),
+    ],
+)
+def test_the_retry_result_keeps_the_existing_classification(sleeps, outcome, code):
+    handler, requests = _sequence(503, outcome)
+
+    with pytest.raises(AIProviderError) as error:
+        _provider(handler).complete("s", [])
+
+    assert error.value.code == code and len(requests) == 2 and len(sleeps) == 1
+
+
+@pytest.mark.parametrize(
+    "outcome, code",
+    [(httpx.ReadTimeout("slow"), "timeout"), (httpx.ConnectError("down"), "network_error")],
+)
+def test_timeouts_and_network_errors_are_not_retried(sleeps, outcome, code):
+    handler, requests = _sequence(outcome, 200)
+
+    with pytest.raises(AIProviderError) as error:
+        _provider(handler).complete("s", [])
+
+    assert error.value.code == code and len(requests) == 1 and sleeps == []
+
+
+def test_retry_logging_omits_the_key_headers_and_content(sleeps, caplog):
+    import logging
+
+    caplog.set_level(logging.DEBUG)
+    handler, _ = _sequence(503, 200)
+
+    _provider(handler).complete("secret system text", [{"role": "user", "content": "private question"}])
+
+    assert "on attempt 1; retrying once" in caplog.text and "retry finished with HTTP 200" in caplog.text
+    for forbidden in (API_KEY, "Bearer", "Authorization", "secret system text", "private question", "upstream body"):
+        assert forbidden not in caplog.text
+
+
+def test_chat_succeeds_end_to_end_after_a_transient_503(client, valid_payload, db_session, sleeps):
+    handler, requests = _sequence(503, 200)
+    _setup(db_session, _provider(handler))
+    aid = _assessment(client, valid_payload)
+
+    body = _chat(client, aid).json()
+
+    assert body["status"] == "ok" and body["message"] == "answer"
+    assert len(requests) == 2
+
+
+def test_chat_reports_provider_error_when_503_persists(client, valid_payload, db_session, sleeps):
+    handler, requests = _sequence(503, 503)
+    _setup(db_session, _provider(handler))
+    aid = _assessment(client, valid_payload)
+
+    body = _chat(client, aid).json()
+
+    assert body["status"] == "ai_error" and body["error_code"] == "provider_error" and body["message"] is None
+    assert len(requests) == 2 and API_KEY not in json.dumps(body)
+
+
 def test_provider_is_only_built_when_configured():
     assert build_provider(Settings(nvidia_api_key=None)) is None
     assert build_provider(Settings(nvidia_api_key="", ai_provider="nvidia")) is None

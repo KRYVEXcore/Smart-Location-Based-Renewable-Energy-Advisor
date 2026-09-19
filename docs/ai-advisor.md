@@ -98,7 +98,7 @@ That is not a recommendation and the context says so.
 
 ## Cost control
 
-One provider request per submitted message; no call on page load, while typing or on retry;
+One provider request per submitted message, plus a single retry only if NVIDIA answers HTTP 503 (its hosted API does so intermittently; see `RETRY_DELAY_SECONDS` in `provider.py`, 1 s pause, never more than one retry, no other status is retried); no call on page load or while typing;
 compact context (~1-2k tokens); last 6 turns; 800-token output cap; 30-second timeout; in-memory
 rate limits (10/min per assessment, 30/min overall - per process, assumes one API instance);
 mocked tests; only a handful of real verification requests.
@@ -108,6 +108,7 @@ mocked tests; only a handful of real verification requests.
 - The chat history lives in the browser only and is lost when the panel closes.
 - Each chat or overview request re-runs the four engines through their normal services (the
   location profile is cached for 24 h, but each engine also writes its usual best-effort snapshot).
+- A persistent 503 still surfaces as `provider_error` ("couldn't process that request") after the one retry. Worst case the per-attempt timeout applies to both attempts.
 - Rate limiting is per process and not per user, because there are no users yet.
 - Quality depends on the configured model; the prompt reduces but cannot eliminate mistakes, and
   the chat is not a recommendation, financial advice or engineering approval.

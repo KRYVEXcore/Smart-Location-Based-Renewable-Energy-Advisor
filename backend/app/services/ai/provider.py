@@ -8,6 +8,7 @@ a prompt, a response or a log line.
 
 import logging
 import re
+import time
 from abc import ABC, abstractmethod
 
 import httpx
@@ -35,6 +36,11 @@ class ChatProvider(ABC):
 
 
 _THINK_BLOCK = re.compile(r"<think>.*?</think>", re.DOTALL)
+
+# NVIDIA's hosted API intermittently answers HTTP 503. Only that status is retried,
+# once, after this pause; every other status keeps its existing classification.
+RETRY_STATUS = 503
+RETRY_DELAY_SECONDS = 1.0
 
 
 class NvidiaNimProvider(ChatProvider):
@@ -67,13 +73,12 @@ class NvidiaNimProvider(ChatProvider):
             "temperature": 0.2,
             "stream": False,
         }
-        try:
-            with httpx.Client(timeout=self._timeout, transport=self._transport) as client:
-                response = client.post(self._url, json=body, headers={"Authorization": f"Bearer {self._api_key}"})
-        except httpx.TimeoutException:
-            raise AIProviderError("timeout") from None
-        except httpx.HTTPError:
-            raise AIProviderError("network_error") from None
+        response = self._post(body)
+        if response.status_code == RETRY_STATUS:
+            logger.warning("AI provider returned HTTP %s on attempt 1; retrying once", response.status_code)
+            time.sleep(RETRY_DELAY_SECONDS)
+            response = self._post(body)
+            logger.info("AI provider retry finished with HTTP %s", response.status_code)
 
         if response.status_code == 429:
             raise AIProviderError("rate_limited")
@@ -92,6 +97,15 @@ class NvidiaNimProvider(ChatProvider):
         if not isinstance(text, str):
             raise AIProviderError("invalid_response")
         return _THINK_BLOCK.sub("", text)
+
+    def _post(self, body: dict) -> httpx.Response:
+        try:
+            with httpx.Client(timeout=self._timeout, transport=self._transport) as client:
+                return client.post(self._url, json=body, headers={"Authorization": f"Bearer {self._api_key}"})
+        except httpx.TimeoutException:
+            raise AIProviderError("timeout") from None
+        except httpx.HTTPError:
+            raise AIProviderError("network_error") from None
 
 
 def build_provider(settings: Settings) -> ChatProvider | None:
