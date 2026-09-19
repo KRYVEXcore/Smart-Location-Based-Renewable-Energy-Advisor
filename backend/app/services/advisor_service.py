@@ -62,6 +62,8 @@ class AdvisorService:
             location_label=label,
             building_type=context["assessment"]["building_type"],
             monthly_consumption_kwh=context["assessment"].get("monthly_consumption_kwh"),
+            monthly_electricity_bill_inr=context["assessment"].get("monthly_electricity_bill_inr"),
+            consumption_source=context["assessment"].get("consumption_source"),
             available=topics,
             suggested_questions=suggested_questions(topics),
         )

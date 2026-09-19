@@ -47,5 +47,7 @@ class AdvisorOverviewResponse(BaseModel):
     location_label: str | None = None
     building_type: str
     monthly_consumption_kwh: float | None = None
+    monthly_electricity_bill_inr: float | None = None
+    consumption_source: str | None = None
     available: dict[str, bool]
     suggested_questions: list[str]

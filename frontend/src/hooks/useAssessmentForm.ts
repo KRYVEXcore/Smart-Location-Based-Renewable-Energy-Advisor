@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { INITIAL_ASSESSMENT_DATA, type AssessmentData } from '../types/assessment'
+import { validateMonthlyBill, validateOptionalUnits } from '../utils/billInput'
 
 export const TOTAL_STEPS = 5
 
@@ -23,7 +24,9 @@ export function useAssessmentForm() {
       ? data.latitude !== null && data.longitude !== null
       : step === 2
         ? data.buildingType !== null
-        : true
+        : step === 3
+          ? validateMonthlyBill(data.monthlyBillInr).ok && validateOptionalUnits(data.monthlyUnitsKwh).ok
+          : true
 
   function goNext() {
     if (canContinue) setStep((prev) => Math.min(prev + 1, TOTAL_STEPS))

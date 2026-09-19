@@ -1,6 +1,7 @@
 import { Pencil } from 'lucide-react'
 import type { AssessmentData } from '../../types/assessment'
 import { BUILDING_TYPE_OPTIONS } from '../../types/assessment'
+import { validateMonthlyBill, validateOptionalUnits } from '../../utils/billInput'
 
 interface ReviewStepProps {
   data: AssessmentData
@@ -42,6 +43,8 @@ export function ReviewStep({ data, onEditStep }: ReviewStepProps) {
   const buildingLabel =
     BUILDING_TYPE_OPTIONS.find((option) => option.value === data.buildingType)?.label ?? 'Not selected'
   const locationLabel = data.locationQuery || 'Not selected'
+  const billCheck = validateMonthlyBill(data.monthlyBillInr)
+  const unitsCheck = validateOptionalUnits(data.monthlyUnitsKwh)
 
   return (
     <div>
@@ -54,8 +57,17 @@ export function ReviewStep({ data, onEditStep }: ReviewStepProps) {
         <Row label="Location" value={locationLabel} onEdit={() => onEditStep(1)} />
         <Row label="Building" value={buildingLabel} onEdit={() => onEditStep(2)} />
         <Row
-          label="Consumption"
-          value={`${data.monthlyConsumptionKwh.toLocaleString('en-IN')} kWh/month`}
+          label="Monthly electricity bill"
+          value={billCheck.ok ? `₹${billCheck.value.toLocaleString('en-IN')}` : 'Not entered'}
+          onEdit={() => onEditStep(3)}
+        />
+        <Row
+          label="Units (optional)"
+          value={
+            unitsCheck.ok && unitsCheck.value !== null
+              ? `${unitsCheck.value.toLocaleString('en-IN')} kWh/month`
+              : 'Not provided — usage will be estimated from your bill'
+          }
           onEdit={() => onEditStep(3)}
         />
         <Row label="Roof area" value={formatOptionalNumber(data.roofAreaSqft, 'sq ft')} onEdit={() => onEditStep(4)} />

@@ -1,4 +1,4 @@
-import type { BuildingType } from './assessment'
+import type { BuildingType } from './assessment.ts'
 
 export type AssessmentStatus = 'draft' | 'submitted' | 'completed'
 
@@ -17,7 +17,9 @@ export interface AssessmentCreatePayload {
     postal_code: string | null
   }
   energy: {
-    monthly_consumption_kwh: number
+    // The customer's bill is the primary input; units are optional and, when given, authoritative.
+    monthly_electricity_bill_inr: number
+    monthly_consumption_kwh?: number
   }
   constraints: {
     roof_area_sqft: number | null
@@ -25,6 +27,20 @@ export interface AssessmentCreatePayload {
     budget_inr: number | null
     backup_required: boolean
   }
+}
+
+export interface ConsumptionEstimate {
+  status: 'estimated' | 'insufficient_data'
+  reason: string | null
+  monthly_bill_inr: number
+  estimated_monthly_consumption_kwh: number | null
+  range_low_kwh: number | null
+  range_high_kwh: number | null
+  match: 'within_tolerance' | 'fixed_charge_gap' | null
+  method: string
+  tariff_name: string | null
+  tariff_version: string | null
+  limitations: string[]
 }
 
 export interface AssessmentResponse {
@@ -49,8 +65,13 @@ export interface AssessmentResponse {
   }
   energy: {
     id: string
-    monthly_consumption_kwh: number
+    // null when a bill-based estimate could not be made (never a default).
+    monthly_consumption_kwh: number | null
     annual_consumption_kwh: number | null
+    monthly_electricity_bill_inr: number | null
+    // 'user_kwh' = entered by the customer; 'user_bill_estimate' = ESTIMATED from the bill.
+    consumption_source: 'user_kwh' | 'user_bill_estimate'
+    consumption_estimate: ConsumptionEstimate | null
   }
   constraints: {
     id: string

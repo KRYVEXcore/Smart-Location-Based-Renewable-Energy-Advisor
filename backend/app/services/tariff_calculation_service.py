@@ -17,6 +17,8 @@ from app.engines.tariff.version import ENGINE_CALCULATION_VERSION
 from app.models.assessment import Assessment
 from app.models.electricity_tariff import ElectricityTariff
 from app.models.enums import TariffConsumerCategory
+from app.engines.tariff.bill_estimation import estimate_consumption_from_bill, unavailable_estimate
+from app.schemas.consumption import BillConsumptionEstimate
 from app.schemas.location import IndiaLocationContext, LocationProfile
 from app.schemas.tariff import TariffCalculationResponse, TariffLocationSummary, TariffSlabInput
 from app.services.location.location_service import LocationService
@@ -47,10 +49,56 @@ class TariffCalculationService:
         assessment = self._get_assessment(assessment_id)
         calc_date = calculation_date or date.today()
 
-        if assessment.location.latitude is None or assessment.location.longitude is None:
+        resolved = self._resolve(assessment, calc_date)
+        if isinstance(resolved, TariffCalculationResponse):
+            return resolved
+        scoped_rows, profile, india, consumer_category = resolved
+
+        if assessment.energy.monthly_consumption_kwh is None:
             return self._insufficient(
-                "This assessment has no saved coordinates, so its location cannot be resolved."
+                "The monthly consumption is not known (a bill-based estimate could not be made), "
+                "so the baseline bill cannot be calculated.",
+                profile=profile,
             )
+        consumption_kwh = _to_decimal(assessment.energy.monthly_consumption_kwh)
+        slab_inputs = [_to_slab_input(row) for row in scoped_rows]
+
+        result = calculate_bill_for_grid_consumption(consumption_kwh, slab_inputs, calc_date, consumer_category)
+        result = self._attach_location(result, profile, india)
+        self._record_snapshot(assessment.id, consumption_kwh, calc_date, consumer_category, result)
+
+        return result
+
+    def estimate_consumption_from_bill(self, assessment: Assessment) -> BillConsumptionEstimate:
+        """Bill-first assessments: estimate monthly kWh from the customer's bill by inverting the
+        applicable verified tariff (see app.engines.tariff.bill_estimation). Uses the same tariff
+        resolution as the bill calculation, so an unresolvable location/DISCOM/tariff is reported
+        as insufficient_data, never guessed.
+        """
+        bill = _to_decimal(assessment.energy.monthly_electricity_bill_inr)
+        calc_date = date.today()
+
+        resolved = self._resolve(assessment, calc_date)
+        if isinstance(resolved, TariffCalculationResponse):
+            detail = f" ({resolved.reason})" if resolved.reason else ""
+            return unavailable_estimate(
+                bill,
+                "Bill-based consumption estimate unavailable for this location because a verified "
+                f"applicable tariff could not be established{detail}",
+            )
+        scoped_rows, _profile, india, consumer_category = resolved
+        estimate = estimate_consumption_from_bill(
+            bill, [_to_slab_input(row) for row in scoped_rows], calc_date, consumer_category
+        )
+        return estimate.model_copy(update={"discom_name": india.discom.name if india.discom else None})
+
+    def _resolve(
+        self, assessment: Assessment, calc_date: date
+    ) -> TariffCalculationResponse | tuple[list[ElectricityTariff], LocationProfile, IndiaLocationContext, TariffConsumerCategory]:
+        """Location -> India context -> DISCOM-scoped tariff rows, or the explanatory response
+        (insufficient_data / discom_ambiguous / tariff_not_configured) when that cannot be done."""
+        if assessment.location.latitude is None or assessment.location.longitude is None:
+            return self._insufficient("This assessment has no saved coordinates, so its location cannot be resolved.")
 
         profile = self._location_service.get_profile(
             float(assessment.location.latitude), float(assessment.location.longitude)
@@ -75,14 +123,7 @@ class TariffCalculationService:
                 return self._discom_ambiguous(profile, india, consumer_category)
             return self._tariff_not_configured(profile, india, consumer_category, calc_date)
 
-        consumption_kwh = _to_decimal(assessment.energy.monthly_consumption_kwh)
-        slab_inputs = [_to_slab_input(row) for row in scoped_rows]
-
-        result = calculate_bill_for_grid_consumption(consumption_kwh, slab_inputs, calc_date, consumer_category)
-        result = self._attach_location(result, profile, india)
-        self._record_snapshot(assessment_id, consumption_kwh, calc_date, consumer_category, result)
-
-        return result
+        return scoped_rows, profile, india, consumer_category
 
     def _get_assessment(self, assessment_id: uuid.UUID) -> Assessment:
         assessment = self._assessments.get(assessment_id)

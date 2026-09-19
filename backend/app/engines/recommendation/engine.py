@@ -35,7 +35,7 @@ IncentivesFor = Callable[[str, float], IncentiveEvaluationResponse | None]
 
 @dataclass(frozen=True)
 class RecommendationInput:
-    monthly_consumption_kwh: float
+    monthly_consumption_kwh: float | None  # None when a bill-based estimate could not be made
     roof_area_sqft: float | None
     budget_inr: float | None
     backup_required: bool
@@ -47,14 +47,15 @@ class RecommendationInput:
 def recommend(engine_input: RecommendationInput, incentives_for: IncentivesFor) -> RecommendationResult:
     target = TARGET_ANNUAL_COVERAGE_PERCENT
     solar_options, solar_pick, solar_met = _select_solar(engine_input.solar, target)
-    wind_pick, wind_met = _select_wind(engine_input.wind, _annual_consumption(engine_input), target)
+    annual_consumption = _annual_consumption(engine_input)
+    wind_pick, wind_met = _select_wind(engine_input.wind, annual_consumption, target)
 
     if solar_pick is not None:
         technology, capacity = "solar", solar_pick.capacity_kw
         generation, coverage, met = solar_pick.estimated_annual_generation_kwh, solar_pick.generation_coverage_percent, solar_met
     elif wind_pick is not None:
         technology, capacity = "wind", wind_pick.capacity_kw
-        generation, coverage, met = wind_pick.annual_generation_kwh, _coverage(wind_pick.annual_generation_kwh, _annual_consumption(engine_input)), wind_met
+        generation, coverage, met = wind_pick.annual_generation_kwh, _coverage(wind_pick.annual_generation_kwh, annual_consumption), wind_met
     else:
         technology = capacity = generation = coverage = met = None
 
@@ -66,7 +67,7 @@ def recommend(engine_input: RecommendationInput, incentives_for: IncentivesFor) 
         recommended_technology=technology,
         recommended_capacity_kw=capacity,
         technical_feasibility="technically_feasible" if technology else None,
-        annual_consumption_kwh=_annual_consumption(engine_input),
+        annual_consumption_kwh=annual_consumption,
         expected_annual_generation_kwh=generation,
         coverage_percent=coverage,
         target_coverage_percent=target,
@@ -90,10 +91,12 @@ def recommend(engine_input: RecommendationInput, incentives_for: IncentivesFor) 
     )
 
 
-def _annual_consumption(engine_input: RecommendationInput) -> float:
+def _annual_consumption(engine_input: RecommendationInput) -> float | None:
     solar = engine_input.solar
     if solar is not None and solar.annual_consumption_kwh is not None:
         return solar.annual_consumption_kwh
+    if engine_input.monthly_consumption_kwh is None:
+        return None
     return round(engine_input.monthly_consumption_kwh * 12, 1)
 
 
@@ -148,9 +151,9 @@ def _solar_decision(
 
 
 def _select_wind(
-    wind: WindCalculationResponse | None, annual_consumption_kwh: float, target: float
+    wind: WindCalculationResponse | None, annual_consumption_kwh: float | None, target: float
 ) -> tuple[WindCandidate | None, bool | None]:
-    if wind is None or wind.status != "ok":
+    if wind is None or wind.status != "ok" or annual_consumption_kwh is None:
         return None, None
     feasible = sorted(
         (c for c in wind.candidates if c.technical_status == "technically_feasible"), key=lambda c: c.capacity_kw

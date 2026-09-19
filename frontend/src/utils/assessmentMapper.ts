@@ -1,5 +1,6 @@
-import type { AssessmentData, BuildingType } from '../types/assessment'
-import type { AssessmentCreatePayload } from '../types/assessmentApi'
+import type { AssessmentData, BuildingType } from '../types/assessment.ts'
+import type { AssessmentCreatePayload } from '../types/assessmentApi.ts'
+import { validateMonthlyBill, validateOptionalUnits } from './billInput.ts'
 
 function toNullableNumber(value: string): number | null {
   if (value.trim() === '') return null
@@ -8,6 +9,11 @@ function toNullableNumber(value: string): number | null {
 }
 
 export function toAssessmentCreatePayload(data: AssessmentData): AssessmentCreatePayload {
+  const bill = validateMonthlyBill(data.monthlyBillInr)
+  const units = validateOptionalUnits(data.monthlyUnitsKwh)
+  if (!bill.ok) throw new Error(bill.message)
+  if (!units.ok) throw new Error(units.message)
+
   return {
     building: {
       building_type: data.buildingType as BuildingType,
@@ -22,8 +28,10 @@ export function toAssessmentCreatePayload(data: AssessmentData): AssessmentCreat
       country: data.locationCountry,
       postal_code: null,
     },
+    // The bill is always sent; units only when the customer chose to enter them.
     energy: {
-      monthly_consumption_kwh: data.monthlyConsumptionKwh,
+      monthly_electricity_bill_inr: bill.value,
+      ...(units.value !== null ? { monthly_consumption_kwh: units.value } : {}),
     },
     constraints: {
       roof_area_sqft: toNullableNumber(data.roofAreaSqft),

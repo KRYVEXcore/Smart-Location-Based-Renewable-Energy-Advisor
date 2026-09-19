@@ -45,6 +45,12 @@ class SolarCalculationService:
                 "cannot be retrieved."
             )
 
+        if assessment.energy.monthly_consumption_kwh is None:
+            return self._insufficient(
+                "The monthly consumption is not known (a bill-based estimate could not be made), "
+                "so system coverage cannot be calculated."
+            )
+
         profile = self._location_service.get_profile(
             float(assessment.location.latitude), float(assessment.location.longitude)
         )

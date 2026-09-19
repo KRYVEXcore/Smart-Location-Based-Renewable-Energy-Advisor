@@ -86,7 +86,7 @@ class RecommendationService:
         constraints = assessment.constraints
         recommendation = recommend(
             RecommendationInput(
-                monthly_consumption_kwh=float(assessment.energy.monthly_consumption_kwh),
+                monthly_consumption_kwh=_to_float(assessment.energy.monthly_consumption_kwh),
                 roof_area_sqft=_to_float(constraints.roof_area_sqft),
                 budget_inr=_to_float(constraints.budget_inr),
                 backup_required=bool(constraints.backup_required),

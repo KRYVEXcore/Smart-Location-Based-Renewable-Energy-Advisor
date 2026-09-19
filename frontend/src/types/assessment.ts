@@ -33,7 +33,10 @@ export interface AssessmentData {
   locationState: string | null
   locationCountry: string | null
   buildingType: BuildingType | null
-  monthlyConsumptionKwh: number
+  // Typed as text so an empty field is empty (never a fabricated default): the bill is the
+  // primary input, and units (kWh) are optional.
+  monthlyBillInr: string
+  monthlyUnitsKwh: string
   roofAreaSqft: string
   landAreaSqft: string
   budget: string
@@ -48,7 +51,8 @@ export const INITIAL_ASSESSMENT_DATA: AssessmentData = {
   locationState: null,
   locationCountry: null,
   buildingType: null,
-  monthlyConsumptionKwh: 300,
+  monthlyBillInr: '',
+  monthlyUnitsKwh: '',
   roofAreaSqft: '',
   landAreaSqft: '',
   budget: '',

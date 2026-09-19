@@ -10,6 +10,8 @@ export interface AdvisorOverview {
   location_label: string | null
   building_type: string
   monthly_consumption_kwh: number | null
+  monthly_electricity_bill_inr: number | null
+  consumption_source: 'user_kwh' | 'user_bill_estimate' | null
   available: Record<string, boolean>
   suggested_questions: string[]
 }

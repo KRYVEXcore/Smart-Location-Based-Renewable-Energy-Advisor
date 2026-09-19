@@ -100,7 +100,14 @@ function AssessmentChat({ assessmentId }: { assessmentId: string }) {
     ? [
         overview.location_label,
         overview.building_type.replace(/_/g, ' '),
-        overview.monthly_consumption_kwh != null ? `${overview.monthly_consumption_kwh} kWh/month` : null,
+        overview.monthly_electricity_bill_inr != null
+          ? `₹${overview.monthly_electricity_bill_inr.toLocaleString('en-IN')}/month bill`
+          : null,
+        overview.monthly_consumption_kwh != null
+          ? overview.consumption_source === 'user_bill_estimate'
+            ? `~${Math.round(overview.monthly_consumption_kwh)} kWh/month (estimated)`
+            : `${overview.monthly_consumption_kwh} kWh/month`
+          : null,
       ]
         .filter(Boolean)
         .join(' · ')

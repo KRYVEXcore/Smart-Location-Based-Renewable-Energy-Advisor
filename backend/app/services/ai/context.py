@@ -201,6 +201,34 @@ def _incentives(result: IncentiveEvaluationResponse | None, recommendation: Reco
     }
 
 
+def _consumption(assessment: Assessment) -> dict:
+    """The customer's bill comes first; kWh is either theirs or an estimate derived from the bill."""
+    energy = assessment.energy
+    estimated = energy.consumption_source == "user_bill_estimate"
+    estimate = energy.consumption_estimate or {}
+    return {
+        "monthly_electricity_bill_inr": _num(energy.monthly_electricity_bill_inr),
+        "monthly_consumption_kwh": _num(energy.monthly_consumption_kwh),
+        "consumption_source": energy.consumption_source,
+        "consumption_basis": (
+            "an ESTIMATE derived from the monthly bill with the verified tariff - not a meter reading"
+            if estimated
+            else "entered by the customer as units (kWh)"
+        ),
+        "consumption_estimate": None
+        if not estimated
+        else {
+            "status": estimate.get("status"),
+            "reason": estimate.get("reason"),
+            "range_low_kwh": estimate.get("range_low_kwh"),
+            "range_high_kwh": estimate.get("range_high_kwh"),
+            "tariff": estimate.get("tariff_name"),
+            "tariff_version": estimate.get("tariff_version"),
+            "limitations": estimate.get("limitations"),
+        },
+    }
+
+
 def _has_data(name: str, section: dict) -> bool:
     if name == "incentives":
         return section.get("status") == "ok" and bool(section.get("programmes"))
@@ -236,7 +264,7 @@ def build_advisor_context(
             "assessment": {
                 "building_type": getattr(building_type, "value", building_type),
                 "consumer_category": map_building_type_to_consumer_category(building_type).value,
-                "monthly_consumption_kwh": _num(assessment.energy.monthly_consumption_kwh),
+                **_consumption(assessment),
                 "roof_area_sqft": _num(constraints.roof_area_sqft),
                 "land_area_sqft": _num(constraints.land_area_sqft),
                 "budget_inr": _num(constraints.budget_inr),

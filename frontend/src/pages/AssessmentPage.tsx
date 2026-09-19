@@ -5,15 +5,16 @@ import { Section } from '../components/layout/Section'
 import { ProgressBar } from '../components/assessment/ProgressBar'
 import { LocationStep } from '../components/assessment/LocationStep'
 import { BuildingTypeStep } from '../components/assessment/BuildingTypeStep'
-import { ConsumptionStep } from '../components/assessment/ConsumptionStep'
+import { BillStep } from '../components/assessment/BillStep'
 import { ConstraintsStep } from '../components/assessment/ConstraintsStep'
 import { ReviewStep } from '../components/assessment/ReviewStep'
 import { useAssessmentForm, TOTAL_STEPS } from '../hooks/useAssessmentForm'
 import { createAssessment } from '../services/assessmentService'
 import { ApiError, NetworkError, type ValidationErrorDetail } from '../services/apiClient'
 import { toAssessmentCreatePayload } from '../utils/assessmentMapper'
+import { validateMonthlyBill, validateOptionalUnits } from '../utils/billInput'
 
-const STEP_LABELS = ['Location', 'Building type', 'Energy use', 'Constraints', 'Review']
+const STEP_LABELS = ['Location', 'Building type', 'Electricity bill', 'Constraints', 'Review']
 
 interface FieldErrors {
   location?: string
@@ -36,7 +37,7 @@ function mapValidationErrors(errors: ValidationErrorDetail[]): { fieldErrors: Fi
     } else if (path.includes('building') && !fieldErrors.buildingType) {
       fieldErrors.buildingType = err.msg
       firstStep = Math.min(firstStep, 2)
-    } else if (path.includes('monthly_consumption_kwh')) {
+    } else if (path.includes('monthly_electricity_bill_inr') || path.includes('monthly_consumption_kwh') || path.includes('energy')) {
       fieldErrors.consumption = err.msg
       firstStep = Math.min(firstStep, 3)
     } else if (path.includes('roof_area_sqft')) {
@@ -60,6 +61,8 @@ export function AssessmentPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
+  const billCheck = validateMonthlyBill(data.monthlyBillInr)
+  const unitsCheck = validateOptionalUnits(data.monthlyUnitsKwh)
 
   function handleBack() {
     goBack()
@@ -150,13 +153,19 @@ export function AssessmentPage() {
           />
         )}
         {step === 3 && (
-          <ConsumptionStep
-            value={data.monthlyConsumptionKwh}
-            onChange={(value) => {
+          <BillStep
+            bill={data.monthlyBillInr}
+            units={data.monthlyUnitsKwh}
+            onBillChange={(value) => {
               clearFieldErrors(['consumption'])
-              updateField('monthlyConsumptionKwh', value)
+              updateField('monthlyBillInr', value)
             }}
-            error={fieldErrors.consumption}
+            onUnitsChange={(value) => {
+              clearFieldErrors(['consumption'])
+              updateField('monthlyUnitsKwh', value)
+            }}
+            billError={fieldErrors.consumption ?? (data.monthlyBillInr === '' || billCheck.ok ? undefined : billCheck.message)}
+            unitsError={unitsCheck.ok ? undefined : unitsCheck.message}
           />
         )}
         {step === 4 && (

@@ -408,6 +408,7 @@ All under `API_V1_PREFIX` (`/api/v1`):
 | GET    | `/locations/search`     | Geocode a place name (`?q=...`)          |
 | GET    | `/locations/profile`    | Normalized solar/wind/weather/elevation data, plus India location resolution (state/UT/district/city/DISCOM), for a coordinate (`?latitude=...&longitude=...`) |
 | POST   | `/solar/calculate`      | Technical solar system options for an assessment (`{"assessment_id": "..."}`) |
+| POST   | `/assessments/{id}/estimate-consumption` | Retry the bill-based kWh estimate (bill-first assessments) |
 | GET    | `/recommendations/{id}` | Deterministic technology + size recommendation built from the existing engines (no AI) |
 | POST   | `/wind/calculate`       | Technical wind screening for an assessment (`{"assessment_id": "..."}`) |
 | POST   | `/tariffs/calculate`    | Estimated baseline electricity bill for an assessment (`{"assessment_id": "...", "calculation_date": "YYYY-MM-DD"}`, date optional) |
@@ -1124,6 +1125,11 @@ services and sends it, with a fixed system prompt, to NVIDIA NIM (Nemotron). The
 renewable-energy calculation engines**, and it never invents tariffs, incentives, wind or solar
 values, costs, savings or live readings. Details, limits and cost controls:
 [docs/ai-advisor.md](docs/ai-advisor.md).
+
+**Bill-first input (Phase 10.5).** Customers enter their average monthly electricity bill (rupees), not kWh. The kWh the
+engines need is an estimate derived by inverting the verified tariff with the existing Tariff Engine (never a bill / rate
+division), or the optional units the customer enters. Estimates are labelled, and unavailable when no verified tariff exists.
+See [docs/bill-first-assessment.md](docs/bill-first-assessment.md).
 
 **Recommendation (Phase 10).** `GET /api/v1/recommendations/{id}` picks a technology and size with deterministic rules over the
 existing engines' outputs (smallest technically feasible solar size that reaches the 100% annual coverage target; wind only when

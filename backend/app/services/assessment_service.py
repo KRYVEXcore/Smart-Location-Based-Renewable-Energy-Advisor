@@ -11,7 +11,7 @@ from app.models.building_constraints import BuildingConstraints
 from app.models.energy_profile import EnergyProfile
 from app.models.enums import AssessmentStatus
 from app.models.location import Location
-from app.schemas.assessment import AssessmentCreate, AssessmentUpdate
+from app.schemas.assessment import AssessmentCreate, AssessmentUpdate, EnergyProfileInput
 from app.services.prototype_user import get_or_create_prototype_user
 
 
@@ -37,9 +37,7 @@ class AssessmentService:
         )
         assessment = Assessment(building=building, status=AssessmentStatus.SUBMITTED)
         assessment.location = Location(**payload.location.model_dump())
-        assessment.energy = EnergyProfile(
-            monthly_consumption_kwh=payload.energy.monthly_consumption_kwh
-        )
+        assessment.energy = EnergyProfile(**_energy_fields(payload.energy))
         assessment.constraints = BuildingConstraints(**payload.constraints.model_dump())
 
         self.repository.add(assessment)
@@ -67,7 +65,8 @@ class AssessmentService:
             for field, value in payload.location.model_dump().items():
                 setattr(assessment.location, field, value)
         if payload.energy is not None:
-            assessment.energy.monthly_consumption_kwh = payload.energy.monthly_consumption_kwh
+            for field, value in _energy_fields(payload.energy).items():
+                setattr(assessment.energy, field, value)
         if payload.constraints is not None:
             for field, value in payload.constraints.model_dump().items():
                 setattr(assessment.constraints, field, value)
@@ -87,6 +86,9 @@ class AssessmentService:
         self.repository.delete(assessment)
         self.db.commit()
 
+    def reload(self, assessment_id: uuid.UUID) -> Assessment:
+        return self._reload(assessment_id)
+
     def _reload(self, assessment_id: uuid.UUID) -> Assessment:
         """Re-fetch with eager-loaded relations after a commit so the
         response is built from fresh, fully-loaded data.
@@ -94,3 +96,21 @@ class AssessmentService:
         assessment = self.repository.get(assessment_id)
         assert assessment is not None
         return assessment
+
+
+def _energy_fields(energy: EnergyProfileInput) -> dict:
+    """Units the user entered are authoritative (source 'user_kwh'); with only a bill the kWh
+    figure starts unknown and is filled in as an ESTIMATE by ConsumptionEstimationService."""
+    if energy.monthly_consumption_kwh is not None:
+        return {
+            "monthly_consumption_kwh": energy.monthly_consumption_kwh,
+            "monthly_electricity_bill_inr": energy.monthly_electricity_bill_inr,
+            "consumption_source": "user_kwh",
+            "consumption_estimate": None,
+        }
+    return {
+        "monthly_consumption_kwh": None,
+        "monthly_electricity_bill_inr": energy.monthly_electricity_bill_inr,
+        "consumption_source": "user_bill_estimate",
+        "consumption_estimate": None,
+    }

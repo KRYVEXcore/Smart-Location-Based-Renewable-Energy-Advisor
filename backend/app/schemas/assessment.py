@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.enums import AssessmentStatus, BuildingType
 
@@ -21,9 +21,24 @@ class LocationInput(BaseModel):
     postal_code: str | None = Field(default=None, max_length=20)
 
 
+# Sensible ceiling for one month's bill (INR): ten lakh rupees.
+MAX_MONTHLY_BILL_INR = 1_000_000
+
+
 class EnergyProfileInput(BaseModel):
-    # 1 electricity unit = 1 kWh.
-    monthly_consumption_kwh: float = Field(gt=0, le=500_000)
+    """The customer's electricity input. The primary input is the average monthly bill (INR).
+    Units (kWh) are optional; when given they are the authoritative consumption and the bill
+    is kept alongside them. 1 electricity unit = 1 kWh.
+    """
+
+    monthly_electricity_bill_inr: float | None = Field(default=None, gt=0, le=MAX_MONTHLY_BILL_INR)
+    monthly_consumption_kwh: float | None = Field(default=None, gt=0, le=500_000)
+
+    @model_validator(mode="after")
+    def _needs_a_bill_or_units(self) -> "EnergyProfileInput":
+        if self.monthly_electricity_bill_inr is None and self.monthly_consumption_kwh is None:
+            raise ValueError("Enter your average monthly electricity bill (or the units consumed).")
+        return self
 
 
 class BuildingConstraintsInput(BaseModel):
@@ -73,8 +88,12 @@ class EnergyProfileRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    monthly_consumption_kwh: float
+    monthly_consumption_kwh: float | None
     annual_consumption_kwh: float | None
+    monthly_electricity_bill_inr: float | None = None
+    # 'user_kwh' = entered by the user; 'user_bill_estimate' = an estimate derived from the bill.
+    consumption_source: str = "user_kwh"
+    consumption_estimate: dict | None = None
 
 
 class BuildingConstraintsRead(BaseModel):

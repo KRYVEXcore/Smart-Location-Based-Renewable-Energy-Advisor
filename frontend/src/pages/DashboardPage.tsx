@@ -7,9 +7,8 @@ import {
   Gauge,
   Loader2,
   MapPin,
-  PiggyBank,
   Sun,
-  TrendingUp,
+  Wallet,
   Wind,
   Zap,
 } from 'lucide-react'
@@ -23,7 +22,9 @@ import { WindAnalysisSection } from '../components/wind/WindAnalysisSection'
 import { ElectricityTariffSection } from '../components/tariff/ElectricityTariffSection'
 import { GovernmentIncentivesSection } from '../components/incentive/GovernmentIncentivesSection'
 import { RecommendationCard } from '../components/recommendation/RecommendationCard'
-import { getAssessment } from '../services/assessmentService'
+import { ReportFinancialSection } from '../components/recommendation/ReportFinancialSection'
+import { estimateConsumption, getAssessment } from '../services/assessmentService'
+import { energyView } from '../utils/reportView'
 import { ApiError } from '../services/apiClient'
 import { useLocationProfile } from '../hooks/useLocationProfile'
 import { useSolarCalculation } from '../hooks/useSolarCalculation'
@@ -68,6 +69,7 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
   const { result: tariffResult, status: tariffStatus, runCalculation: runTariffCalculation } = useTariffCalculation()
   const { result: incentiveResult, status: incentiveStatus, runEvaluation: runIncentiveEvaluation } = useIncentiveEvaluation()
   const { result: recommendation, status: recommendationStatus, runRecommendation } = useRecommendation()
+  const [isRetryingEstimate, setIsRetryingEstimate] = useState(false)
 
   useEffect(() => {
     if (!assessmentId) return
@@ -128,6 +130,15 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
     runRecommendation,
   ])
 
+  function handleRetryEstimate() {
+    if (!assessment) return
+    setIsRetryingEstimate(true)
+    estimateConsumption(assessment.id)
+      .then((updated) => setAssessment(updated))
+      .catch(() => setErrorMessage('The consumption estimate could not be retried right now.'))
+      .finally(() => setIsRetryingEstimate(false))
+  }
+
   if (loadState === 'empty') {
     return (
       <Section width="narrow" className="text-center">
@@ -166,6 +177,7 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
   if (!assessment) return null
 
   const hasCoordinates = assessment.location.latitude != null && assessment.location.longitude != null
+  const energy = energyView(assessment.energy)
 
   return (
     <Section>
@@ -209,12 +221,20 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
         {recommendation && <RecommendationCard result={recommendation} />}
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <h2 className="mt-8 text-xl font-bold text-slate-900">Cost and savings</h2>
+      <div className="mt-4">
+        <ReportFinancialSection recommendation={recommendation} />
+      </div>
+
+      <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-3">
+        <MetricCard icon={Wallet} label="Monthly electricity bill" value={energy.billLabel} />
         <MetricCard
           icon={Gauge}
-          label="Monthly consumption"
-          value={assessment.energy.monthly_consumption_kwh.toString()}
-          unit="kWh"
+          label={energy.usageKind === 'estimated' ? 'Estimated usage' : 'Usage'}
+          value={energy.usageValue ?? undefined}
+          unit={energy.usageUnit ?? undefined}
+          pendingLabel="Estimate unavailable"
+          note={energy.usageKind === 'unavailable' ? undefined : energy.usageNote}
         />
         <MetricCard
           icon={Zap}
@@ -227,9 +247,16 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
           unit="kW"
           pendingLabel={recommendationStatus === 'ready' ? 'No recommendation yet' : 'Calculating…'}
         />
-        <MetricCard icon={PiggyBank} label="Estimated savings" pendingLabel="Awaiting financial engine" />
-        <MetricCard icon={TrendingUp} label="Payback period" pendingLabel="Awaiting financial engine" />
       </div>
+
+      {energy.usageKind === 'unavailable' && (
+        <div className="mt-4 flex flex-col items-start gap-3 rounded-2xl border border-dashed border-amber-300 bg-amber-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="min-w-0 break-words text-sm text-amber-800">{energy.usageNote}</p>
+          <Button variant="secondary" onClick={handleRetryEstimate} disabled={isRetryingEstimate}>
+            {isRetryingEstimate ? 'Retrying…' : 'Retry estimate'}
+          </Button>
+        </div>
+      )}
 
       <h2 className="mt-12 text-xl font-bold text-slate-900">Location intelligence</h2>
       {!hasCoordinates && (
