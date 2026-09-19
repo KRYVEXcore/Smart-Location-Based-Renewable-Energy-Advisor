@@ -69,8 +69,8 @@ tells the model those numbers are authoritative, that it must not recalculate th
 section with `status` other than `ok` means "the application has no verified data" - never an
 estimate. Sections that fail are marked `unavailable` instead of being dropped or defaulted.
 The model is told the application has no recommendation, cost/savings/payback/ROI, or live
-monitoring, so "which should I install?", "what is my payback?" and "what is my turbine
-producing?" are answered honestly rather than invented.
+monitoring, so "what is my payback?" and "what is my turbine producing?" are answered honestly rather
+than invented ("what should I install?" is answered from the recommendation object, see below).
 
 The incentive section is evaluated for a 3 kW solar system, the same default the dashboard uses.
 That is not a recommendation and the context says so.
@@ -140,6 +140,35 @@ prompt, rate limits and security model are unchanged, and the browser never hold
   -> the text answer stays visible.
 - **Tests:** `npm test` (Node's built-in runner, no new dependency) covers the state machine with
   fakes; the real microphone and speaker path needs a manual test in Chrome or Edge.
+
+## Recommendation Engine (Phase 10)
+
+SHREA now makes a real recommendation, but the decision is made by deterministic backend code,
+never by the model. `GET /api/v1/recommendations/{assessment_id}` (no AI call) runs the EXISTING
+Solar, Wind, Tariff and Incentive services and passes their outputs to
+`app/engines/recommendation/engine.py`. Nothing is recalculated there.
+
+Rules (returned with every result as `rules`; the target is one constant,
+`TARGET_ANNUAL_COVERAGE_PERCENT = 100.0`):
+1. Technically infeasible options, and options that cannot be checked (roof area unknown), are excluded.
+2. Wind is only considered when its screening is `technically_feasible`; insufficient/marginal/unavailable wind is excluded.
+3. Solar: the smallest technically feasible evaluated capacity whose coverage reaches the target.
+4. If none reaches it: the largest feasible one, with `target_met: false` and a limitation.
+5. Solar is preferred to wind when both are feasible; wind is only recommended if no solar size is feasible.
+6. Hybrid and battery are never recommended (no deterministic engine yet).
+7. Cost, savings and payback are never produced. A budget is echoed back with "affordability cannot yet be calculated".
+
+Statuses: `recommended`, `no_suitable_option` (all evaluated options infeasible), `insufficient_data`
+(for example no roof area: nothing is guessed). The incentive is evaluated by the existing
+Incentive Engine for the **recommended** technology and size and only listed when it says eligible,
+so a college is never given the residential scheme.
+
+SHREA AI receives this object as the `recommendation` section of its context and is instructed to
+explain it, never to pick a different technology or capacity, and to answer "what should I install?"
+directly instead of listing every candidate. The dashboard shows the same object as the
+recommendation card. Limitations: no cost/savings/payback (no verified data), no hybrid or battery
+sizing, wind is a regional screening, and each dashboard load re-runs the engines (the results are
+not cached).
 
 ## Limitations
 

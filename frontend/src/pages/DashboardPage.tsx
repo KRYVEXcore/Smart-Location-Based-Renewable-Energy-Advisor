@@ -22,6 +22,7 @@ import { SolarAnalysisSection } from '../components/solar/SolarAnalysisSection'
 import { WindAnalysisSection } from '../components/wind/WindAnalysisSection'
 import { ElectricityTariffSection } from '../components/tariff/ElectricityTariffSection'
 import { GovernmentIncentivesSection } from '../components/incentive/GovernmentIncentivesSection'
+import { RecommendationCard } from '../components/recommendation/RecommendationCard'
 import { getAssessment } from '../services/assessmentService'
 import { ApiError } from '../services/apiClient'
 import { useLocationProfile } from '../hooks/useLocationProfile'
@@ -29,6 +30,7 @@ import { useSolarCalculation } from '../hooks/useSolarCalculation'
 import { useWindCalculation } from '../hooks/useWindCalculation'
 import { useTariffCalculation } from '../hooks/useTariffCalculation'
 import { useIncentiveEvaluation } from '../hooks/useIncentiveEvaluation'
+import { useRecommendation } from '../hooks/useRecommendation'
 import type { AssessmentResponse } from '../types/assessmentApi'
 
 const COMPARISON_TECHNOLOGIES = [
@@ -65,6 +67,7 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
   const { result: windResult, status: windStatus, runCalculation: runWindCalculation } = useWindCalculation()
   const { result: tariffResult, status: tariffStatus, runCalculation: runTariffCalculation } = useTariffCalculation()
   const { result: incentiveResult, status: incentiveStatus, runEvaluation: runIncentiveEvaluation } = useIncentiveEvaluation()
+  const { result: recommendation, status: recommendationStatus, runRecommendation } = useRecommendation()
 
   useEffect(() => {
     if (!assessmentId) return
@@ -113,8 +116,17 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
       runWindCalculation(assessment.id)
       runTariffCalculation(assessment.id)
       runIncentiveEvaluation(assessment.id, DEFAULT_INCENTIVE_TECHNOLOGY, DEFAULT_INCENTIVE_CAPACITY_KW)
+      runRecommendation(assessment.id)
     }
-  }, [assessment, profileStatus, runCalculation, runWindCalculation, runTariffCalculation, runIncentiveEvaluation])
+  }, [
+    assessment,
+    profileStatus,
+    runCalculation,
+    runWindCalculation,
+    runTariffCalculation,
+    runIncentiveEvaluation,
+    runRecommendation,
+  ])
 
   if (loadState === 'empty') {
     return (
@@ -182,6 +194,21 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
         Ask SHREA AI about this assessment
       </Button>
 
+      <div className="mt-6">
+        {(recommendationStatus === 'idle' || recommendationStatus === 'loading') && (
+          <div className="flex items-center gap-2 rounded-3xl border border-slate-200 p-6 text-sm text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            Working out your recommendation…
+          </div>
+        )}
+        {recommendationStatus === 'error' && (
+          <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            The recommendation is unavailable right now. Please check your internet connection.
+          </p>
+        )}
+        {recommendation && <RecommendationCard result={recommendation} />}
+      </div>
+
       <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <MetricCard
           icon={Gauge}
@@ -189,7 +216,17 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
           value={assessment.energy.monthly_consumption_kwh.toString()}
           unit="kWh"
         />
-        <MetricCard icon={Zap} label="Recommended capacity" pendingLabel="Awaiting recommendation engine" />
+        <MetricCard
+          icon={Zap}
+          label="Recommended capacity"
+          value={
+            recommendation?.recommendation_status === 'recommended' && recommendation.recommended_capacity_kw !== null
+              ? recommendation.recommended_capacity_kw.toString()
+              : undefined
+          }
+          unit="kW"
+          pendingLabel={recommendationStatus === 'ready' ? 'No recommendation yet' : 'Calculating…'}
+        />
         <MetricCard icon={PiggyBank} label="Estimated savings" pendingLabel="Awaiting financial engine" />
         <MetricCard icon={TrendingUp} label="Payback period" pendingLabel="Awaiting financial engine" />
       </div>

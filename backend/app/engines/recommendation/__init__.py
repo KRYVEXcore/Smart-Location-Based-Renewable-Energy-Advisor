@@ -1,1 +1,3 @@
-"""Cross-technology recommendation logic will be implemented in Phase 7."""
+from app.engines.recommendation.engine import RecommendationInput, recommend
+
+__all__ = ["RecommendationInput", "recommend"]

@@ -2,7 +2,6 @@ import json
 import logging
 import time
 import uuid
-from decimal import Decimal
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -10,11 +9,8 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.database.repositories.assessment_repository import AssessmentRepository
 from app.models.assessment import Assessment
-from app.models.enums import RenewableTechnology
 from app.schemas.advisor import AdvisorChatRequest, AdvisorChatResponse, AdvisorOverviewResponse
 from app.services.ai.context import (
-    INCENTIVE_CAPACITY_KW,
-    INCENTIVE_TECHNOLOGY,
     available_topics,
     build_advisor_context,
     suggested_questions,
@@ -22,11 +18,8 @@ from app.services.ai.context import (
 from app.services.ai.prompt import SYSTEM_PROMPT
 from app.services.ai.provider import AIProviderError, ChatProvider
 from app.services.ai.rate_limit import SlidingWindowLimiter
-from app.services.incentive_evaluation_service import IncentiveEvaluationService
 from app.services.location.location_service import LocationService
-from app.services.solar_calculation_service import SolarCalculationService
-from app.services.tariff_calculation_service import TariffCalculationService
-from app.services.wind_calculation_service import WindCalculationService
+from app.services.recommendation_service import RecommendationService
 
 logger = logging.getLogger(__name__)
 
@@ -130,30 +123,17 @@ class AdvisorService:
             )
 
     def _build_context(self, assessment: Assessment) -> dict:
-        """Each engine runs through its own existing service; a failure in one
-        leaves that section 'unavailable' rather than breaking the others."""
-        db, loc, aid = self._db, self._location_service, assessment.id
-
-        def run(name: str, call):
-            try:
-                return call()
-            except Exception:
-                logger.exception("Advisor context: %s calculation failed", name)
-                return None
-
+        """The engine results (including the deterministic recommendation) come from the
+        existing services via RecommendationService; a failing engine leaves its section
+        'unavailable' rather than breaking the others."""
+        results = RecommendationService(self._db, self._location_service).evaluate(assessment)
         return build_advisor_context(
             assessment,
-            solar=run("solar", lambda: SolarCalculationService(db, loc).calculate_for_assessment(aid)),
-            wind=run("wind", lambda: WindCalculationService(db, loc).calculate_for_assessment(aid)),
-            tariff=run("tariff", lambda: TariffCalculationService(db, loc).calculate_for_assessment(aid)),
-            incentives=run(
-                "incentives",
-                lambda: IncentiveEvaluationService(db, loc).evaluate_for_assessment(
-                    aid,
-                    technology=RenewableTechnology(INCENTIVE_TECHNOLOGY),
-                    proposed_capacity_kw=Decimal(INCENTIVE_CAPACITY_KW),
-                ),
-            ),
+            solar=results.solar,
+            wind=results.wind,
+            tariff=results.tariff,
+            incentives=results.incentives,
+            recommendation=results.recommendation,
         )
 
     def _validate_reply(self, text: str) -> str:

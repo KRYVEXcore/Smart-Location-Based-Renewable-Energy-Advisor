@@ -12,19 +12,14 @@ from typing import Any
 from app.engines.tariff.consumer_category_mapping import map_building_type_to_consumer_category
 from app.models.assessment import Assessment
 from app.schemas.incentive import IncentiveEvaluationResponse
+from app.schemas.recommendation import RecommendationResult
 from app.schemas.solar import SolarCalculationResponse
 from app.schemas.tariff import TariffCalculationResponse
 from app.schemas.wind import WindCalculationResponse
 
-# Phase 6 is evaluated for one technology + capacity per request; the dashboard
-# uses this same default (see DashboardPage.tsx). It is not a recommendation.
-INCENTIVE_TECHNOLOGY = "solar"
-INCENTIVE_CAPACITY_KW = 3
-
 NOT_AVAILABLE = {"status": "unavailable", "reason": "This result could not be produced right now."}
 
 APPLICATION_LIMITS = {
-    "recommendation_engine": "not implemented - the application gives no recommendation yet",
     "cost_savings_payback_roi": "not implemented - no verified result exists",
     "live_monitoring": "not connected - no live generation, battery or device data exists",
 }
@@ -133,14 +128,56 @@ def _tariff(result: TariffCalculationResponse | None) -> dict:
     }
 
 
-def _incentives(result: IncentiveEvaluationResponse | None) -> dict:
+def _recommendation(result: RecommendationResult | None) -> dict:
     if result is None:
         return NOT_AVAILABLE
     return {
+        "status": result.recommendation_status,
+        "recommended_technology": result.recommended_technology,
+        "recommended_capacity_kw": result.recommended_capacity_kw,
+        "technical_feasibility": result.technical_feasibility,
+        "annual_consumption_kwh": result.annual_consumption_kwh,
+        "expected_annual_generation_kwh": result.expected_annual_generation_kwh,
+        "coverage_percent": result.coverage_percent,
+        "target_coverage_percent": result.target_coverage_percent,
+        "target_met": result.target_met,
+        "reason": result.recommendation_reason,
+        "solar_options_evaluated": [
+            {"capacity_kw": o.capacity_kw, "coverage_percent": o.coverage_percent, "decision": o.decision, "note": o.note}
+            for o in result.solar_options_evaluated
+        ],
+        "excluded_options": [{"technology": e.technology, "reason": e.reason} for e in result.excluded_options],
+        "applicable_incentives": [
+            {
+                "scheme": i.scheme_name,
+                "level": i.level,
+                "incentive_amount_inr": i.incentive_amount_inr,
+                "effective_from": i.effective_from.isoformat() if i.effective_from else None,
+                "effective_to": i.effective_to.isoformat() if i.effective_to else None,
+                "source_name": i.source_name,
+                "source_order": i.source_order,
+                "source_page": i.source_page,
+            }
+            for i in result.applicable_incentives
+        ],
+        "incentive_note": result.incentive_context.note if result.incentive_context else None,
+        "cost": result.cost_context.note,
+        "budget_inr": result.cost_context.budget_inr,
+        "limitations": result.limitations,
+    }
+
+
+def _incentives(result: IncentiveEvaluationResponse | None, recommendation: RecommendationResult | None) -> dict:
+    if result is None:
+        return NOT_AVAILABLE
+    recommended = recommendation is not None and recommendation.recommendation_status == "recommended"
+    return {
         "evaluated_for": {
-            "technology": INCENTIVE_TECHNOLOGY,
-            "capacity_kw": INCENTIVE_CAPACITY_KW,
-            "note": "the dashboard's default evaluation size, not a recommendation",
+            "technology": result.technology.value if result.technology else None,
+            "capacity_kw": result.proposed_capacity_kw,
+            "note": "the recommended system"
+            if recommended
+            else "the dashboard's default evaluation size, not a recommendation",
         },
         "status": result.status,
         "reason": result.reason,
@@ -167,6 +204,8 @@ def _incentives(result: IncentiveEvaluationResponse | None) -> dict:
 def _has_data(name: str, section: dict) -> bool:
     if name == "incentives":
         return section.get("status") == "ok" and bool(section.get("programmes"))
+    if name == "recommendation":
+        return section.get("status") == "recommended"
     return section.get("status") == "ok"
 
 
@@ -177,6 +216,7 @@ def build_advisor_context(
     wind: WindCalculationResponse | None,
     tariff: TariffCalculationResponse | None,
     incentives: IncentiveEvaluationResponse | None,
+    recommendation: RecommendationResult | None,
 ) -> dict:
     location = assessment.location
     constraints = assessment.constraints
@@ -205,7 +245,8 @@ def build_advisor_context(
             "solar": _solar(solar),
             "wind": _wind(wind),
             "tariff": _tariff(tariff),
-            "incentives": _incentives(incentives),
+            "incentives": _incentives(incentives, recommendation),
+            "recommendation": _recommendation(recommendation),
             "application_limits": APPLICATION_LIMITS,
         }
     )
@@ -217,11 +258,13 @@ def _num(value: object | None) -> float | None:
 
 def available_topics(context: dict) -> dict[str, bool]:
     """Which result sections actually hold verified data (drives suggested questions)."""
-    return {name: _has_data(name, context.get(name, {})) for name in ("solar", "wind", "tariff", "incentives")}
+    return {name: _has_data(name, context.get(name, {})) for name in ("solar", "wind", "tariff", "incentives", "recommendation")}
 
 
 def suggested_questions(topics: dict[str, bool]) -> list[str]:
     questions = ["Explain my assessment", "How much electricity am I using?"]
+    if topics["recommendation"]:
+        questions.insert(0, "What do you recommend for me?")
     if topics["solar"]:
         questions.append("Explain my solar result")
     if topics["wind"]:

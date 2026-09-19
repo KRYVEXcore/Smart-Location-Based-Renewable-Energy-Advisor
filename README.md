@@ -408,6 +408,7 @@ All under `API_V1_PREFIX` (`/api/v1`):
 | GET    | `/locations/search`     | Geocode a place name (`?q=...`)          |
 | GET    | `/locations/profile`    | Normalized solar/wind/weather/elevation data, plus India location resolution (state/UT/district/city/DISCOM), for a coordinate (`?latitude=...&longitude=...`) |
 | POST   | `/solar/calculate`      | Technical solar system options for an assessment (`{"assessment_id": "..."}`) |
+| GET    | `/recommendations/{id}` | Deterministic technology + size recommendation built from the existing engines (no AI) |
 | POST   | `/wind/calculate`       | Technical wind screening for an assessment (`{"assessment_id": "..."}`) |
 | POST   | `/tariffs/calculate`    | Estimated baseline electricity bill for an assessment (`{"assessment_id": "...", "calculation_date": "YYYY-MM-DD"}`, date optional) |
 | GET    | `/tariffs`              | Filtered tariff slab lookup (`?state=...&union_territory=...&consumer_category=...&discom_id=...`) |
@@ -1123,6 +1124,11 @@ services and sends it, with a fixed system prompt, to NVIDIA NIM (Nemotron). The
 renewable-energy calculation engines**, and it never invents tariffs, incentives, wind or solar
 values, costs, savings or live readings. Details, limits and cost controls:
 [docs/ai-advisor.md](docs/ai-advisor.md).
+
+**Recommendation (Phase 10).** `GET /api/v1/recommendations/{id}` picks a technology and size with deterministic rules over the
+existing engines' outputs (smallest technically feasible solar size that reaches the 100% annual coverage target; wind only when
+its screening is feasible; no hybrid, battery, cost, savings or payback). The dashboard shows it, and SHREA AI explains it without
+choosing anything itself. See [docs/ai-advisor.md](docs/ai-advisor.md).
 
 **Voice (Phase 9).** The chat has an opt-in microphone: speech is turned into text for the same advisor
 request, and replies are spoken back with the browser's speech synthesis. It is an input/output layer only;

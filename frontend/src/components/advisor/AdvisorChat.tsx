@@ -5,6 +5,7 @@ import { NOT_CONNECTED_TEXT, useAdvisorChat } from '../../hooks/useAdvisorChat'
 import { useVoiceConversation } from '../../hooks/useVoiceConversation'
 import type { VoiceState } from '../../voice/voiceController'
 import { cn } from '../../utils/cn'
+import { renderRichText } from '../../utils/richText'
 
 interface AdvisorChatProps {
   assessmentId: string | null
@@ -168,7 +169,9 @@ function AssessmentChat({ assessmentId }: { assessmentId: string }) {
               <p className={cn('text-xs font-semibold', message.role === 'user' ? 'text-slate-300' : 'text-emerald-700')}>
                 {message.role === 'user' ? 'You' : 'SHREA AI'}
               </p>
-              <p className="mt-0.5 whitespace-pre-wrap break-words">{message.text}</p>
+              <p className="mt-0.5 whitespace-pre-wrap break-words">
+                {message.role === 'assistant' ? renderRichText(message.text) : message.text}
+              </p>
             </div>
           </div>
         ))}
