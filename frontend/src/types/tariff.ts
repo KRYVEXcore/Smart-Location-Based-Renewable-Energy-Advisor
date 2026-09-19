@@ -34,7 +34,15 @@ export interface TariffScheduleSummary {
   source_url: string | null
   source_document: string | null
   source_name: string | null
+  source_order_number: string | null
+  source_order_date: string | null
+  source_page: string | null
+  source_table: string | null
+  source_section: string | null
+  source_excerpt: string | null
+  verification_notes: string | null
   last_verified: string | null
+  verification_status: 'verified' | 'pending_review' | 'expired' | 'superseded' | 'unavailable' | null
 }
 
 export interface TariffCalculationResponse {

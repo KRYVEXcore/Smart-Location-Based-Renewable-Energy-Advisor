@@ -1,78 +1,94 @@
 # India tariff seed data
 
-This directory is where genuinely verified official electricity tariff data
-is checked in, one JSON file per DISCOM/state schedule, loaded into
-`electricity_tariffs` by [`backend/scripts/seed_tariffs.py`](../../../../scripts/seed_tariffs.py).
-It intentionally contains **no real tariff data yet** — see the investigation
-record below.
+Verified electricity tariff schedules, one JSON file per schedule at
+`<state-slug>/<tariff_version>.json`, loaded into `electricity_tariffs` by
+`python -m scripts.seed_tariffs` (or `scripts.seed_all`). Every file is
+validated first (`app.data_validation`); if any file fails, nothing is
+written.
+
+The evidence for every number is in
+[`docs/data-verification/tariff-and-incentive-research.md`](../../../../../docs/data-verification/tariff-and-incentive-research.md);
+what is and is not covered is in
+[`coverage-report.md`](../../../../../docs/data-verification/coverage-report.md).
+
+## Current contents
+
+| Folder | Schedules | DISCOM scope |
+|---|---|---|
+| `tamil_nadu/` | `TN-TNPDCL-LT-IA-2025.07` | TNPDCL |
+| `maharashtra/` | `MH-MSEDCL-LT-IB-FY2025-26`, `MH-MSEDCL-LT-IB-FY2026-27` | MSEDCL |
+| `karnataka/` | `KA-ESCOMS-LT1-FY2025-26`, `KA-ESCOMS-LT1-FY2026-27` | state level (all ESCOMs) |
+| `rajasthan/` | `RJ-DISCOMS-LT1-FY2025-26-H2`, `RJ-DISCOMS-LT1-FY2026-27` | state level (all DISCOMs) |
+
+Residential only. **No other State/UT has a file**, and none may be added without a verified source.
+Kerala was verified but is deliberately not seeded (its non-telescopic billing cannot be represented).
 
 ## File format
-
-One file per tariff schedule, at `india/<state-slug>/<tariff_version>.json`:
 
 ```json
 {
   "state": "Tamil Nadu",
   "union_territory": null,
-  "discom_short_code": null,
+  "discom_short_code": "TNPDCL",
   "consumer_category": "residential",
-  "tariff_version": "EXAMPLE-DOMESTIC-2026.1",
-  "tariff_name": "EXAMPLE Domestic (LT-IA) Tariff",
-  "effective_from": "2026-01-01",
+  "tariff_version": "TN-TNPDCL-LT-IA-2025.07",
+  "tariff_name": "...",
+  "effective_from": "2025-07-01",
   "effective_to": null,
-  "source_url": "https://example.invalid/official-tariff-order",
-  "source_document": "EXAMPLE Tariff Order No. 0 of 2026",
-  "source_name": "EXAMPLE State Electricity Regulatory Commission",
-  "last_verified": "2026-01-01",
+  "fixed_charge_basis": "inr_per_kw_per_month",
+  "verification_status": "verified",
+  "active": true,
+  "source": {
+    "name": "Tamil Nadu Electricity Regulatory Commission (TNERC)",
+    "url": "https://www.tnerc.tn.gov.in/...pdf",
+    "document": "Suo-motu Order No. 6 of 2025 ...",
+    "order_number": "Suo-motu Order No. 6 of 2025",
+    "order_date": "2025-06-30",
+    "page": "34 (PDF page 34 of 53)",
+    "table": "3.2.2 Low Tension Tariff I-A ...",
+    "section": "Chapter 3, clause 3.2.2",
+    "excerpt": "the quoted figures as printed in the document",
+    "last_verified": "2026-09-19"
+  },
+  "verification_notes": "cross-checks, supersession check, caveats",
   "slabs": [
-    { "slab_min_kwh": 0, "slab_max_kwh": 100, "energy_charge_inr_per_kwh": 0.00, "fixed_charge_inr": null },
-    { "slab_min_kwh": 100, "slab_max_kwh": null, "energy_charge_inr_per_kwh": 0.00, "fixed_charge_inr": null }
+    { "slab_min_kwh": 0, "slab_max_kwh": 200, "energy_charge_inr_per_kwh": 4.95, "fixed_charge_inr": 0 },
+    { "slab_min_kwh": 200, "slab_max_kwh": null, "energy_charge_inr_per_kwh": 6.65, "fixed_charge_inr": 0 }
   ]
 }
 ```
 
-`discom_short_code` is resolved against the existing `discoms` table
-(`null` means a state-level tariff with no specific DISCOM). `slabs` must
-start at 0, be contiguous, and have exactly one final slab with
-`slab_max_kwh: null` — see `app.engines.tariff.validation` for the exact
-rules enforced at calculation time.
+Rules enforced by the loader and the tests:
 
-[`schema_example.json`](schema_example.json) uses the `.example.json`-style
-naming (excluded from the loader's `*.json` glob by living outside any
-`<state-slug>/` folder) so it is never mistaken for real data.
+- A `verified` record needs a complete source: organisation, official `https` URL (regulator, ministry,
+  government or official DISCOM host, see `app.data_validation.official_sources`), document, order number,
+  page, a table or section, the quoted excerpt, and `last_verified`. Commercial calculators, blogs and news
+  sites are rejected.
+- An unverified record must be `active: false` and is never used for a bill.
+- Numbers are parsed as `Decimal`, never float. Rates are `energy_charge_inr_per_kwh` (convert paise exactly:
+  495 paise = 4.95).
+- Slabs start at 0, are contiguous, and only the last has `slab_max_kwh: null`. Do not round or merge the
+  regulator's boundaries; splitting a slab is only acceptable when needed to express a per-bracket fixed
+  charge, and must be explained in `verification_notes`.
+- `fixed_charge_basis` is required whenever a fixed charge is given: `inr_per_month`,
+  `inr_per_connection_per_month`, `inr_per_kw_per_month`, `inr_per_kva_per_month` or `inr_per_hp_per_month`.
+  Only the first two are billed; a per-kW/kVA/HP charge is reported `not_calculated`.
+  A fixed charge may differ per slab: the bill uses the slab that the month's total consumption falls in.
+- `wheeling_charge_inr_per_kwh` is stored separately from the energy charge.
+- Versions are never overwritten: a new order gets a new `tariff_version` with its own effective dates and the
+  old file stays. Overlapping effective periods for the same state/DISCOM/category are rejected.
+- `discom_short_code` must exist in `../../discoms/india/discoms.json` for that state. Use `null` (state
+  level) only when the official document makes one schedule common to every DISCOM in the state.
 
-## Investigation record (Phase 5)
+Seeding is an idempotent upsert on (state/UT, DISCOM, category, version, slab minimum). It never deletes a
+row; a slab dropped from a file is deactivated.
 
-Per this project's explicit rule — **prefer NO DATA over FAKE DATA** — a
-state's tariff is only seeded here once its exact slabs, rates, and charges
-have been confirmed by reading an actual official source (a state
-Electricity Regulatory Commission, an official DISCOM tariff page, or an
-official tariff order/notification). A commercial bill-calculator site,
-blog, or aggregator is never treated as the authoritative source, even when
-it is useful for locating the real one.
+## Adding a new state
 
-Five states were investigated for this phase, as required. None could be
-confidently verified within this phase's tooling, so **all five remain
-unconfigured** — no `ElectricityTariff` rows exist for them:
+1. Find the current regulator order and any later amendment, corrigendum or superseding order.
+2. Read the exact table in the primary document (render the PDF page if it has no text layer).
+3. Cross-check against the DISCOM's own publication where possible.
+4. Add the JSON file with the full source locator, run `python -m scripts.data_quality_report`, and add the
+   evidence to the research log.
 
-| State | Official source(s) located | Why not seeded |
-|---|---|---|
-| Tamil Nadu | TNERC tariff orders page (`tnerc.tn.gov.in/TariffOrders.aspx`); a tariff order PDF only available via a third-party mirror | The mirrored PDF is compressed/encoded and could not be read as text; the only readable slab figures found were from secondary commercial sites (SolarQuarter, Adyar Times, tristarenergy.in), which this project's rules exclude as an authoritative source |
-| Maharashtra | MERC (`merc.gov.in`) MYT order press note PDF; MSEDCL's own tariff schedule PDF (`mahadiscom.in`) | Same PDF-readability limitation; the specific per-slab rates found in search results trace back to commercial calculator sites, not a direct read of the MERC/MSEDCL PDF text |
-| Karnataka | KERC tariff-orders page (`kerc.karnataka.gov.in`); BESCOM's own tariff page (`bescom.karnataka.gov.in`) | Only page listings were reachable, not the underlying order document text; rate figures in search results again trace to commercial aggregator sites |
-| Kerala | KSERC's own document store (`erckerala.org`), including a document titled "Schedule of Tariff and Terms and Conditions for Retail Supply" | The PDF is a scanned/compressed document that could not be extracted as readable text with the tooling available in this phase |
-| Rajasthan | RERC tariff-orders page (`rerc.rajasthan.gov.in`); JVVNL's own tariff order PDF (`cescrajasthan.co.in`) | Same PDF-readability limitation; slab figures in search results trace to commercial calculator sites, not a direct read of the RERC/JVVNL order |
-
-In every case, a real official source was located, but this phase's tooling
-could not extract a complete, exact slab table from it with enough
-confidence to store as authoritative data — and the numbers that were
-readable came from commercial aggregator sites this project's rules
-explicitly exclude as a source of record. Populating any of these five
-states is future work: someone with direct access to the primary PDF (or a
-cleaner text extraction of it) can add a JSON file here following the
-format above, citing the exact order number and page/clause it came from in
-`source_document`.
-
-Until then, `POST /api/v1/tariffs/calculate` correctly reports
-`tariff_not_configured` for all locations in these (and any other)
-states — this is the intended, honest behavior, not a bug.
+If the number cannot be established with confidence, do not add a file.

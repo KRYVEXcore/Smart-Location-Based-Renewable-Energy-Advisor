@@ -1,4 +1,5 @@
 import { Info } from 'lucide-react'
+import { SourceEvidence } from '../common/SourceEvidence'
 import type { ChargeComponentName, TariffCalculationResponse } from '../../types/tariff'
 
 interface ElectricityTariffSectionProps {
@@ -46,7 +47,7 @@ export function ElectricityTariffSection({ result }: ElectricityTariffSectionPro
   if (result.status === 'tariff_not_configured') {
     return (
       <EmptyState
-        heading="No verified electricity tariff is configured yet for this location."
+        heading="No verified electricity tariff is configured for this location."
         reason={result.reason}
       />
     )
@@ -102,6 +103,24 @@ export function ElectricityTariffSection({ result }: ElectricityTariffSectionPro
           This is a partial estimate — some charge components ({result.excluded_components.join(', ').replace(/_/g, ' ')})
           could not be calculated from the data this assessment collects.
         </p>
+      )}
+
+      {result.tariff && (
+        <SourceEvidence
+          verificationStatus={result.tariff.verification_status}
+          organisation={result.tariff.source_name}
+          document={result.tariff.source_document}
+          orderNumber={result.tariff.source_order_number}
+          orderDate={result.tariff.source_order_date}
+          page={result.tariff.source_page}
+          table={result.tariff.source_table}
+          section={result.tariff.source_section}
+          effectiveFrom={result.tariff.effective_from}
+          effectiveTo={result.tariff.effective_to}
+          lastVerified={result.tariff.last_verified}
+          url={result.tariff.source_url}
+          notes={result.tariff.verification_notes}
+        />
       )}
 
       <p className="mt-3 rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500">

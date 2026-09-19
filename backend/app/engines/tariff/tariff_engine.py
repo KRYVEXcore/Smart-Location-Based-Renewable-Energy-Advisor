@@ -64,7 +64,15 @@ def calculate_bill_for_grid_consumption(
         source_url=sample_row.source_url,
         source_document=sample_row.source_document,
         source_name=sample_row.source_name,
+        source_order_number=sample_row.source_order_number,
+        source_order_date=sample_row.source_order_date,
+        source_page=sample_row.source_page,
+        source_table=sample_row.source_table,
+        source_section=sample_row.source_section,
+        source_excerpt=sample_row.source_excerpt,
+        verification_notes=sample_row.verification_notes,
         last_verified=sample_row.last_verified,
+        verification_status=sample_row.verification_status,
     )
 
     return TariffCalculationResponse(

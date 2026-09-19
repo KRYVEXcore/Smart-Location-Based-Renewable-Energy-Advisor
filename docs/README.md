@@ -25,5 +25,10 @@ deterministic renewable-energy incentive eligibility and calculation
 engine — central/state/DISCOM separation, scheme versioning, stacking
 rules, and the central/per-state incentive-data investigation record).
 
+Real tariff and incentive data is documented in [`data-verification/`](data-verification/): the
+[research log](data-verification/tariff-and-incentive-research.md) (every number traced to its official
+document, page and table), the [coverage report](data-verification/coverage-report.md) and the generated
+[data-quality report](data-verification/data-quality-report.md).
+
 This folder is reserved for longer-form design documents (e.g. ADRs,
 diagrams) if a future phase needs them separately from the README.

@@ -1,0 +1,56 @@
+{
+  "state": "Maharashtra",
+  "union_territory": null,
+  "discom_short_code": "MSEDCL",
+  "consumer_category": "residential",
+  "tariff_version": "MH-MSEDCL-LT-IB-FY2025-26",
+  "tariff_name": "MSEDCL LT I(B) Residential - FY 2025-26",
+  "effective_from": "2025-07-01",
+  "effective_to": "2026-03-31",
+  "fixed_charge_basis": "inr_per_connection_per_month",
+  "verification_status": "verified",
+  "active": true,
+  "source": {
+    "name": "Maharashtra Electricity Regulatory Commission (MERC)",
+    "url": "https://www.mahadiscom.in/wp-content/uploads/2026/07/Tariff-Order_Case-No.-75-of-2025-dated-25th-March-2026.pdf",
+    "document": "MERC Order in Case No. 75 of 2025 dated 25 March 2026 (MSEDCL review of MYT Order, post remand proceedings), published on MSEDCL's tariff details page",
+    "order_number": "Case No. 75 of 2025",
+    "order_date": "2026-03-25",
+    "page": "94 (PDF page 94 of 123)",
+    "table": "Summary of LT Tariff for FY 2025-26, effective from 1 July, 2025",
+    "section": "Revised category-wise Tariffs - LT Residential, LT I(B)",
+    "excerpt": "LT I(B): LT - Residential, Rs/conn/mth: Fixed 130 for each slab; 1-100 units: energy 4.28, wheeling 1.47; 101-300 units: 11.10, 1.47; 301-500 units: 15.38, 1.47; Above 500 units: 17.68, 1.47; Three Phase Charges 430.",
+    "last_verified": "2026-09-19"
+  },
+  "verification_notes": "Controlling order: the 25-03-2026 post-remand order in Case 75 of 2025. The 28-03-2025 MYT order (Case 217 of 2024) was stayed, the 25-06-2025 review order was set aside by the Bombay High Court on 3-11-2025 and remanded by the Supreme Court; para 26.5-26.8 (pages 88-89) confirm the tariff in force from 1 July 2025 and that the FY 2025-26 tariff is unchanged. Cross-check: MERC's 25-06-2025 review order (Case 75 of 2025, https://www.mahadiscom.in/consumer/wp-content/uploads/2025/06/Order_Case-No.75-of-2025.pdf) prints identical LT I(B) rows for FY 2025-26 (PDF page 52) and FY 2026-27 (PDF page 53). Billing method: residential consumers are billed on a telescopic tariff (MERC Case 217 of 2024, para 2.4.5, page 62). Energy and wheeling charges are stored separately as printed in the order (the printed FY 2025-26 first-slab total of 5.74 differs by Rs 0.01 from 4.28 + 1.47). Fixed charge is the single-phase Rs/connection/month rate; three-phase connections pay an additional charge (Rs 430 in FY 2025-26, Rs 435 in FY 2026-27) and connection phase is not collected. Electricity duty, FAC and taxes are not modelled. MSEDCL does not serve all of Maharashtra (BEST, AEML-D and TPC-D also distribute in Mumbai), so this schedule only applies when the DISCOM is identified as MSEDCL.",
+  "slabs": [
+    {
+      "slab_min_kwh": 0,
+      "slab_max_kwh": 100,
+      "energy_charge_inr_per_kwh": 4.28,
+      "fixed_charge_inr": 130,
+      "wheeling_charge_inr_per_kwh": 1.47
+    },
+    {
+      "slab_min_kwh": 100,
+      "slab_max_kwh": 300,
+      "energy_charge_inr_per_kwh": 11.1,
+      "fixed_charge_inr": 130,
+      "wheeling_charge_inr_per_kwh": 1.47
+    },
+    {
+      "slab_min_kwh": 300,
+      "slab_max_kwh": 500,
+      "energy_charge_inr_per_kwh": 15.38,
+      "fixed_charge_inr": 130,
+      "wheeling_charge_inr_per_kwh": 1.47
+    },
+    {
+      "slab_min_kwh": 500,
+      "slab_max_kwh": null,
+      "energy_charge_inr_per_kwh": 17.68,
+      "fixed_charge_inr": 130,
+      "wheeling_charge_inr_per_kwh": 1.47
+    }
+  ]
+}

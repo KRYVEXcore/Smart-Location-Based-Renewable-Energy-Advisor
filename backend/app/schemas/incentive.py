@@ -59,9 +59,21 @@ class IncentiveProgramInput(BaseModel):
     verification_status: IncentiveVerificationStatus
     active: bool
 
+    # Scope: a state/UT set on a CENTRAL programme restricts it to that
+    # region (see app.engines.incentive.scope).
+    state: str | None = None
+    union_territory: str | None = None
+
     source_name: str | None = None
     source_url: str | None = None
     source_document: str | None = None
+    source_order_number: str | None = None
+    source_order_date: date | None = None
+    source_page: str | None = None
+    source_table: str | None = None
+    source_section: str | None = None
+    source_excerpt: str | None = None
+    verification_notes: str | None = None
     last_verified: date | None = None
     discom_id: uuid.UUID | None = None
 
@@ -70,6 +82,14 @@ class IncentiveSourceInfo(BaseModel):
     source_name: str | None = None
     source_url: str | None = None
     source_document: str | None = None
+    source_order_number: str | None = None
+    source_order_date: date | None = None
+    source_page: str | None = None
+    source_table: str | None = None
+    source_section: str | None = None
+    source_excerpt: str | None = None
+    verification_notes: str | None = None
+    verification_status: IncentiveVerificationStatus | None = None
     last_verified: date | None = None
 
 
@@ -177,12 +197,22 @@ class IncentiveProgramOut(BaseModel):
     subsidy_value: Decimal | None
     percentage_value: Decimal | None
     maximum_amount: Decimal | None
+    calculation_rules: dict | None
+    eligibility_rules: dict | None
+    stacking_rules: dict | None
     verification_status: IncentiveVerificationStatus
     effective_from: date
     effective_to: date | None
     source_name: str | None
     source_url: str | None
     source_document: str | None
+    source_order_number: str | None
+    source_order_date: date | None
+    source_page: str | None
+    source_table: str | None
+    source_section: str | None
+    source_excerpt: str | None
+    verification_notes: str | None
     last_verified: date | None
     active: bool
 

@@ -8,7 +8,7 @@ from app.database.repositories.discom_repository import DiscomRepository
 from app.main import app
 from app.models.discom import Discom
 from app.models.electricity_tariff import ElectricityTariff
-from app.models.enums import TariffConsumerCategory
+from app.models.enums import IncentiveVerificationStatus, TariffConsumerCategory
 from app.models.tariff_calculation_snapshot import TariffCalculationSnapshot
 from app.schemas.location import GeocodingCandidate
 from app.services.location.dependencies import get_location_service
@@ -47,6 +47,7 @@ def _seed_tariff(db_session, **overrides) -> ElectricityTariff:
         fixed_charge_inr=None,
         effective_from=date(2026, 1, 1),
         effective_to=None,
+        verification_status=IncentiveVerificationStatus.VERIFIED,
         active=True,
     )
     defaults.update(overrides)

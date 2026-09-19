@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.electricity_tariff import ElectricityTariff
-from app.models.enums import TariffConsumerCategory
+from app.models.enums import IncentiveVerificationStatus, TariffConsumerCategory
 
 
 class TariffRepository:
@@ -23,15 +23,18 @@ class TariffRepository:
         union_territory: str | None,
         consumer_category: TariffConsumerCategory,
     ) -> list[ElectricityTariff]:
-        """All active rows for a state/UT + category, regardless of DISCOM or
-        effective date — narrowing by DISCOM and date happens afterwards
-        (see TariffCalculationService and app.engines.tariff.version_selection).
+        """All active, VERIFIED rows for a state/UT + category, regardless of
+        DISCOM or effective date — narrowing by DISCOM and date happens
+        afterwards (see TariffCalculationService and
+        app.engines.tariff.version_selection). A row that is not verified
+        is never used to calculate a bill.
         """
         if not state and not union_territory:
             return []
 
         query = select(ElectricityTariff).where(
             ElectricityTariff.active.is_(True),
+            ElectricityTariff.verification_status == IncentiveVerificationStatus.VERIFIED,
             ElectricityTariff.consumer_category == consumer_category,
         )
         if state:

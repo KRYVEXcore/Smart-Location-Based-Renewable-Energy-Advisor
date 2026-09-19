@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.models.enums import TariffConsumerCategory
+from app.models.enums import FixedChargeBasis, IncentiveVerificationStatus, TariffConsumerCategory
 
 ChargeComponentName = Literal["energy", "fixed", "demand", "wheeling", "tod"]
 ChargeComponentStatus = Literal["included", "not_included", "not_calculated"]
@@ -23,6 +23,7 @@ class TariffSlabInput(BaseModel):
     slab_max_kwh: Decimal | None = None
     energy_charge_inr_per_kwh: Decimal
     fixed_charge_inr: Decimal | None = None
+    fixed_charge_basis: FixedChargeBasis | None = None
     demand_charge_inr: Decimal | None = None
     wheeling_charge_inr_per_kwh: Decimal | None = None
     effective_from: date
@@ -30,7 +31,15 @@ class TariffSlabInput(BaseModel):
     source_url: str | None = None
     source_document: str | None = None
     source_name: str | None = None
+    source_order_number: str | None = None
+    source_order_date: date | None = None
+    source_page: str | None = None
+    source_table: str | None = None
+    source_section: str | None = None
+    source_excerpt: str | None = None
+    verification_notes: str | None = None
     last_verified: date | None = None
+    verification_status: IncentiveVerificationStatus = IncentiveVerificationStatus.VERIFIED
     discom_id: uuid.UUID | None = None
 
 
@@ -65,7 +74,15 @@ class TariffScheduleSummary(BaseModel):
     source_url: str | None = None
     source_document: str | None = None
     source_name: str | None = None
+    source_order_number: str | None = None
+    source_order_date: date | None = None
+    source_page: str | None = None
+    source_table: str | None = None
+    source_section: str | None = None
+    source_excerpt: str | None = None
+    verification_notes: str | None = None
     last_verified: date | None = None
+    verification_status: IncentiveVerificationStatus | None = None
 
 
 class TariffCalculationResponse(BaseModel):
@@ -114,6 +131,7 @@ class TariffSlabOut(BaseModel):
     slab_max_kwh: Decimal | None
     energy_charge_inr_per_kwh: Decimal
     fixed_charge_inr: Decimal | None
+    fixed_charge_basis: str | None
     demand_charge_inr: Decimal | None
     wheeling_charge_inr_per_kwh: Decimal | None
     effective_from: date
@@ -121,7 +139,15 @@ class TariffSlabOut(BaseModel):
     source_url: str | None
     source_document: str | None
     source_name: str | None
+    source_order_number: str | None
+    source_order_date: date | None
+    source_page: str | None
+    source_table: str | None
+    source_section: str | None
+    source_excerpt: str | None
+    verification_notes: str | None
     last_verified: date | None
+    verification_status: IncentiveVerificationStatus
     active: bool
 
     model_config = {"from_attributes": True}

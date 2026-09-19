@@ -40,10 +40,10 @@ class IncentiveProgram(Base):
     can still be recorded (for the research record) without ever being
     presented as a real, applicable subsidy.
 
-    No production rows are seeded by this migration — see
-    backend/app/data/incentives/india/README.md for the Phase 6
-    investigation record of why no scheme could be confidently verified
-    yet.
+    Rows are only ever loaded from backend/app/data/incentives/india/ by
+    scripts/seed_incentives.py, after being validated against an official
+    source (see app.data_validation). See that folder's README.md for the
+    per-scheme investigation record.
     """
 
     __tablename__ = "incentive_programs"
@@ -106,6 +106,13 @@ class IncentiveProgram(Base):
     source_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     source_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     source_document: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    source_order_number: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    source_order_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    source_page: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    source_table: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    source_section: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    source_excerpt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    verification_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_verified: Mapped[date | None] = mapped_column(Date, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 

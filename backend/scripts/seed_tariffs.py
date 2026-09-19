@@ -1,135 +1,176 @@
 """Loads verified tariff schedules from backend/app/data/tariffs/india/ into
 the electricity_tariffs table.
 
-Not wired into app startup — seeding real regulatory data is a deliberate,
-reviewed action, not something that should silently run on every boot.
-Safe to re-run: each (state/UT, DISCOM, category, tariff_version) schedule
-is replaced wholesale rather than diffed row by row.
+Not wired into app startup by default: seeding real regulatory data is a
+deliberate, reviewed action. Every file is validated first (official source,
+complete provenance, slabs, dates, DISCOM registered) and nothing is written
+if any file fails.
+
+Idempotent and non-destructive: each slab is upserted by its natural key
+(state/UT, DISCOM, category, tariff_version, slab_min_kwh), so running this
+twice changes nothing. A slab that is no longer in a schedule's file is
+deactivated, never deleted, so old calculations stay reproducible.
 
 Run from backend/ with:
 
-    python -m scripts.seed_tariffs
-
-As of Phase 5, backend/app/data/tariffs/india/ contains no real state data
-(see its README.md for the investigation record) — running this script
-today is a documented no-op, not an error.
+    python -m scripts.seed_tariffs [--dry-run] [--expect-database NAME]
 """
 
-import json
+import argparse
 from decimal import Decimal
-from pathlib import Path
 
+from sqlalchemy.orm import Session
+
+from app.data_validation import dataset
+from app.data_validation.records import TariffScheduleRecord
 from app.database.connection import SessionLocal
-from app.engines.tariff.validation import validate_slabs
 from app.models.discom import Discom
 from app.models.electricity_tariff import ElectricityTariff
-from app.models.enums import TariffConsumerCategory
-from app.schemas.tariff import TariffSlabInput
+from scripts._seed_common import (
+    SeedStats,
+    add_common_arguments,
+    assert_expected_database,
+    describe_database,
+    sync_attributes,
+)
 
-DATA_ROOT = Path(__file__).resolve().parent.parent / "app" / "data" / "tariffs" / "india"
+NUMERIC_FIELDS = {
+    "slab_max_kwh",
+    "energy_charge_inr_per_kwh",
+    "fixed_charge_inr",
+    "wheeling_charge_inr_per_kwh",
+}
 
 
-def _resolve_discom_id(session, short_code: str | None, state: str | None, union_territory: str | None):
-    if short_code is None:
+def resolve_discom_id(session: Session, schedule: TariffScheduleRecord):
+    if schedule.discom_short_code is None:
         return None
-    query = session.query(Discom).filter(Discom.short_code == short_code)
-    if state:
-        query = query.filter(Discom.state == state)
-    elif union_territory:
-        query = query.filter(Discom.union_territory == union_territory)
+    query = session.query(Discom).filter(Discom.short_code == schedule.discom_short_code)
+    query = query.filter(Discom.state == schedule.state) if schedule.state else query.filter(
+        Discom.union_territory == schedule.union_territory
+    )
     discom = query.one_or_none()
     if discom is None:
-        raise ValueError(f"No DISCOM found with short_code={short_code!r} in {state or union_territory!r}")
+        raise ValueError(
+            f"DISCOM {schedule.discom_short_code!r} is not in the database for "
+            f"{schedule.state or schedule.union_territory!r}: run scripts.seed_discoms first."
+        )
     return discom.id
 
 
-def _load_schedule_file(session, path: Path) -> int:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+def load_schedule(session: Session, schedule: TariffScheduleRecord) -> SeedStats:
+    stats = SeedStats()
+    discom_id = resolve_discom_id(session, schedule)
 
-    consumer_category = TariffConsumerCategory(payload["consumer_category"])
-    discom_id = _resolve_discom_id(
-        session, payload.get("discom_short_code"), payload.get("state"), payload.get("union_territory")
+    existing = (
+        session.query(ElectricityTariff)
+        .filter(
+            ElectricityTariff.state == schedule.state,
+            ElectricityTariff.union_territory == schedule.union_territory,
+            ElectricityTariff.discom_id == discom_id,
+            ElectricityTariff.consumer_category == schedule.consumer_category,
+            ElectricityTariff.tariff_version == schedule.tariff_version,
+        )
+        .all()
     )
+    by_min = {Decimal(str(row.slab_min_kwh)): row for row in existing}
+    source = schedule.source
+    seen_mins: set[Decimal] = set()
 
-    slab_inputs = [
-        TariffSlabInput(
-            tariff_version=payload["tariff_version"],
-            tariff_name=payload["tariff_name"],
-            slab_min_kwh=Decimal(str(slab["slab_min_kwh"])),
-            slab_max_kwh=None if slab.get("slab_max_kwh") is None else Decimal(str(slab["slab_max_kwh"])),
-            energy_charge_inr_per_kwh=Decimal(str(slab["energy_charge_inr_per_kwh"])),
-            fixed_charge_inr=(
-                None if slab.get("fixed_charge_inr") is None else Decimal(str(slab["fixed_charge_inr"]))
-            ),
-            wheeling_charge_inr_per_kwh=(
-                None
-                if slab.get("wheeling_charge_inr_per_kwh") is None
-                else Decimal(str(slab["wheeling_charge_inr_per_kwh"]))
-            ),
-            effective_from=payload["effective_from"],
-            effective_to=payload.get("effective_to"),
-            source_url=payload.get("source_url"),
-            source_document=payload.get("source_document"),
-            source_name=payload.get("source_name"),
-            last_verified=payload.get("last_verified"),
-        )
-        for slab in payload["slabs"]
-    ]
-    # Fail loudly on malformed seed data rather than writing bad rows.
-    validate_slabs(slab_inputs)
-
-    # Replace any existing rows for this exact schedule so the script is
-    # safely re-runnable as source data is corrected.
-    session.query(ElectricityTariff).filter(
-        ElectricityTariff.state == payload.get("state"),
-        ElectricityTariff.union_territory == payload.get("union_territory"),
-        ElectricityTariff.discom_id == discom_id,
-        ElectricityTariff.consumer_category == consumer_category,
-        ElectricityTariff.tariff_version == payload["tariff_version"],
-    ).delete()
-
-    for slab_input in slab_inputs:
-        session.add(
-            ElectricityTariff(
-                state=payload.get("state"),
-                union_territory=payload.get("union_territory"),
-                discom_id=discom_id,
-                consumer_category=consumer_category,
-                tariff_version=slab_input.tariff_version,
-                tariff_name=slab_input.tariff_name,
-                slab_min_kwh=slab_input.slab_min_kwh,
-                slab_max_kwh=slab_input.slab_max_kwh,
-                energy_charge_inr_per_kwh=slab_input.energy_charge_inr_per_kwh,
-                fixed_charge_inr=slab_input.fixed_charge_inr,
-                wheeling_charge_inr_per_kwh=slab_input.wheeling_charge_inr_per_kwh,
-                effective_from=slab_input.effective_from,
-                effective_to=slab_input.effective_to,
-                source_url=slab_input.source_url,
-                source_document=slab_input.source_document,
-                source_name=slab_input.source_name,
-                last_verified=slab_input.last_verified,
-                active=True,
+    for slab in schedule.slabs:
+        seen_mins.add(Decimal(str(slab.slab_min_kwh)))
+        desired = {
+            "tariff_name": schedule.tariff_name,
+            "slab_max_kwh": slab.slab_max_kwh,
+            "energy_charge_inr_per_kwh": slab.energy_charge_inr_per_kwh,
+            "fixed_charge_inr": slab.fixed_charge_inr,
+            "fixed_charge_basis": schedule.fixed_charge_basis.value if schedule.fixed_charge_basis else None,
+            "wheeling_charge_inr_per_kwh": slab.wheeling_charge_inr_per_kwh,
+            "effective_from": schedule.effective_from,
+            "effective_to": schedule.effective_to,
+            "source_name": source.name,
+            "source_url": source.url,
+            "source_document": source.document,
+            "source_order_number": source.order_number,
+            "source_order_date": source.order_date,
+            "source_page": source.page,
+            "source_table": source.table,
+            "source_section": source.section,
+            "source_excerpt": source.excerpt,
+            "verification_notes": schedule.verification_notes,
+            "last_verified": source.last_verified,
+            "verification_status": schedule.verification_status,
+            "active": schedule.active,
+        }
+        row = by_min.get(Decimal(str(slab.slab_min_kwh)))
+        if row is None:
+            session.add(
+                ElectricityTariff(
+                    state=schedule.state,
+                    union_territory=schedule.union_territory,
+                    discom_id=discom_id,
+                    consumer_category=schedule.consumer_category,
+                    tariff_version=schedule.tariff_version,
+                    slab_min_kwh=slab.slab_min_kwh,
+                    **desired,
+                )
             )
-        )
-    return len(slab_inputs)
+            stats.inserted += 1
+        elif sync_attributes(row, desired, NUMERIC_FIELDS):
+            stats.updated += 1
+        else:
+            stats.unchanged += 1
+
+    for slab_min, row in by_min.items():
+        if slab_min not in seen_mins and row.active:
+            row.active = False
+            stats.deactivated += 1
+
+    return stats
 
 
-def seed_all() -> None:
-    session = SessionLocal()
-    total_files = 0
-    total_slabs = 0
+def seed_all(
+    *, dry_run: bool = False, expect_database: str | None = None, session: Session | None = None
+) -> SeedStats:
+    """With `session` given (see scripts.seed_all) the caller owns commit/rollback,
+    so several steps can share one transaction.
+    """
+    tariffs = dataset.load_tariff_schedules()
+    discoms = dataset.load_discom_records()
+    problems = dataset.check_tariff_dataset(tariffs, dataset.known_discom_keys(discoms))
+    if problems:
+        raise SystemExit("Tariff data failed validation, nothing written:\n  " + "\n  ".join(problems))
+
+    owns_session = session is None
+    session = session or SessionLocal()
+    total = SeedStats()
     try:
-        for schedule_file in sorted(DATA_ROOT.glob("*/*.json")):
-            total_slabs += _load_schedule_file(session, schedule_file)
-            total_files += 1
-        session.commit()
+        assert_expected_database(session, expect_database)
+        print(f"[tariffs] target: {describe_database(session)}")
+        before = session.query(ElectricityTariff).count()
+        for _, schedule in tariffs:
+            total.add(load_schedule(session, schedule))
+            session.flush()
+        after = session.query(ElectricityTariff).count()
+        if owns_session:
+            session.rollback() if dry_run else session.commit()
+        print(
+            f"[tariffs] {len(tariffs)} schedule file(s) | rows before={before} "
+            f"after={after if not (dry_run and owns_session) else before} | {total.summary()}"
+            f"{' (dry run, nothing written)' if dry_run else ''}"
+        )
     except Exception:
-        session.rollback()
+        if owns_session:
+            session.rollback()
         raise
     finally:
-        session.close()
-    print(f"Loaded {total_files} tariff schedule file(s), {total_slabs} slab row(s).")
+        if owns_session:
+            session.close()
+    return total
 
 
 if __name__ == "__main__":
-    seed_all()
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    add_common_arguments(parser)
+    args = parser.parse_args()
+    seed_all(dry_run=args.dry_run, expect_database=args.expect_database)

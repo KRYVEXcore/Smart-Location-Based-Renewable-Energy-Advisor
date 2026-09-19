@@ -1,0 +1,87 @@
+[
+  {
+    "name": "Tamil Nadu Power Distribution Corporation Limited",
+    "short_code": "TNPDCL",
+    "state": "Tamil Nadu",
+    "is_active": true,
+    "source": {
+      "name": "Tamil Nadu Electricity Regulatory Commission (TNERC)",
+      "url": "https://www.tnerc.tn.gov.in/Orders/files/TO-Order%20No6300620252111.pdf",
+      "document": "TNERC Suo-motu Order No. 6 of 2025 dated 30-06-2025, Tamil Nadu Power Distribution Corporation Ltd. (TNPDCL) Tariff Order, 2025",
+      "order_number": "Order No. 6 of 2025",
+      "order_date": "2025-06-30",
+      "page": "1",
+      "section": "Title page: 'Tamil Nadu Power Distribution Corporation Ltd.(TNPDCL) Tariff Order, 2025'",
+      "excerpt": "Determination of Tariff for Distribution for FY 2025-26 (effective from 01-07-2025)",
+      "last_verified": "2026-09-19"
+    }
+  },
+  {
+    "name": "Maharashtra State Electricity Distribution Company Limited",
+    "short_code": "MSEDCL",
+    "state": "Maharashtra",
+    "is_active": true,
+    "source": {
+      "name": "Maharashtra Electricity Regulatory Commission (MERC)",
+      "url": "https://www.mahadiscom.in/wp-content/uploads/2026/07/Tariff-Order_Case-No.-75-of-2025-dated-25th-March-2026.pdf",
+      "document": "MERC Order in Case No. 75 of 2025 dated 25 March 2026 (MSEDCL review of MYT Order, post remand proceedings)",
+      "order_number": "Case No. 75 of 2025",
+      "order_date": "2026-03-25",
+      "page": "1",
+      "section": "Case title: Maharashtra State Electricity Distribution Co. Ltd. seeking review of the MYT Order dated 28 March 2025",
+      "excerpt": "Case of Maharashtra State Electricity Distribution Co. Ltd. seeking review of the MYT Order dated 28 March 2025 issued in Case No. 217 of 2024 and revision of tariff",
+      "last_verified": "2026-09-19"
+    }
+  },
+  {
+    "name": "BEST Undertaking",
+    "short_code": "BEST",
+    "state": "Maharashtra",
+    "is_active": true,
+    "source": {
+      "name": "Maharashtra Electricity Regulatory Commission (MERC)",
+      "url": "https://www.mahadiscom.in/consumer/wp-content/uploads/2025/08/MSEDCL-MYT-Order_Case_no_217-of-2024.pdf",
+      "document": "MERC MYT Order in Case No. 217 of 2024 dated 28 March 2025",
+      "order_number": "Case No. 217 of 2024",
+      "order_date": "2025-03-28",
+      "page": "65 and 106 (PDF pages of 827)",
+      "section": "Stakeholder submissions recorded in the order, naming BEST, AEML-D and TPC-D as other distribution licensees",
+      "excerpt": "uniformity in the applicability of GSC across all Distribution Licensees, including but not limited to BEST, AEML-D, and TPC-D",
+      "last_verified": "2026-09-19"
+    }
+  },
+  {
+    "name": "Adani Electricity Mumbai Limited (Distribution)",
+    "short_code": "AEML-D",
+    "state": "Maharashtra",
+    "is_active": true,
+    "source": {
+      "name": "Maharashtra Electricity Regulatory Commission (MERC)",
+      "url": "https://www.mahadiscom.in/consumer/wp-content/uploads/2025/08/MSEDCL-MYT-Order_Case_no_217-of-2024.pdf",
+      "document": "MERC MYT Order in Case No. 217 of 2024 dated 28 March 2025",
+      "order_number": "Case No. 217 of 2024",
+      "order_date": "2025-03-28",
+      "page": "65 and 106 (PDF pages of 827)",
+      "section": "Stakeholder submissions recorded in the order, naming BEST, AEML-D and TPC-D as other distribution licensees",
+      "excerpt": "while AEML-D, TPC-D, and BEST levy Fixed Charges, MSEDCL applies Demand Charges for consumers with a connected load above 20 kW",
+      "last_verified": "2026-09-19"
+    }
+  },
+  {
+    "name": "Tata Power Company Limited (Distribution)",
+    "short_code": "TPC-D",
+    "state": "Maharashtra",
+    "is_active": true,
+    "source": {
+      "name": "Maharashtra Electricity Regulatory Commission (MERC)",
+      "url": "https://www.mahadiscom.in/consumer/wp-content/uploads/2025/08/MSEDCL-MYT-Order_Case_no_217-of-2024.pdf",
+      "document": "MERC MYT Order in Case No. 217 of 2024 dated 28 March 2025",
+      "order_number": "Case No. 217 of 2024",
+      "order_date": "2025-03-28",
+      "page": "65 and 106 (PDF pages of 827)",
+      "section": "Stakeholder submissions recorded in the order, naming BEST, AEML-D and TPC-D as other distribution licensees",
+      "excerpt": "uniformity in the applicability of GSC across all Distribution Licensees, including but not limited to BEST, AEML-D, and TPC-D",
+      "last_verified": "2026-09-19"
+    }
+  }
+]

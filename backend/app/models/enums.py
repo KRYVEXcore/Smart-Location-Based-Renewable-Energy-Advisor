@@ -106,3 +106,18 @@ class IncentiveVerificationStatus(str, enum.Enum):
     EXPIRED = "expired"
     SUPERSEDED = "superseded"
     UNAVAILABLE = "unavailable"
+
+
+class FixedChargeBasis(str, enum.Enum):
+    """What a tariff's fixed charge is charged *per*. Real Indian tariffs
+    quote fixed charges per connection, per kW of sanctioned load, per kVA,
+    or per HP — only the flat-monthly bases can be billed from the data
+    this app collects. A per-kW/kVA/HP charge is never turned into a flat
+    monthly amount (see app.engines.tariff.bill_calculation).
+    """
+
+    INR_PER_MONTH = "inr_per_month"
+    INR_PER_CONNECTION_PER_MONTH = "inr_per_connection_per_month"
+    INR_PER_KW_PER_MONTH = "inr_per_kw_per_month"
+    INR_PER_KVA_PER_MONTH = "inr_per_kva_per_month"
+    INR_PER_HP_PER_MONTH = "inr_per_hp_per_month"

@@ -12,6 +12,7 @@ from app.database.repositories.incentive_evaluation_snapshot_repository import (
 )
 from app.database.repositories.incentive_program_repository import IncentiveProgramRepository
 from app.engines.incentive.incentive_engine import evaluate_incentives
+from app.engines.incentive.scope import applies_to_region
 from app.engines.incentive.version import ENGINE_CALCULATION_VERSION
 from app.engines.tariff.consumer_category_mapping import map_building_type_to_consumer_category
 from app.models.assessment import Assessment
@@ -87,6 +88,11 @@ class IncentiveEvaluationService:
             union_territory=india.union_territory,
             technology=technology,
         )
+        rows = [
+            row
+            for row in rows
+            if applies_to_region(row, state=india.state, union_territory=india.union_territory)
+        ]
         scoped_rows, discom_blocked_results = self._scope_by_discom(rows, india)
 
         candidate_inputs = [_to_program_input(row) for row in scoped_rows]
@@ -301,9 +307,18 @@ def _to_program_input(row: IncentiveProgram) -> IncentiveProgramInput:
         effective_to=row.effective_to,
         verification_status=row.verification_status,
         active=row.active,
+        state=row.state,
+        union_territory=row.union_territory,
         source_name=row.source_name,
         source_url=row.source_url,
         source_document=row.source_document,
+        source_order_number=row.source_order_number,
+        source_order_date=row.source_order_date,
+        source_page=row.source_page,
+        source_table=row.source_table,
+        source_section=row.source_section,
+        source_excerpt=row.source_excerpt,
+        verification_notes=row.verification_notes,
         last_verified=row.last_verified,
         discom_id=row.discom_id,
     )

@@ -1,0 +1,58 @@
+{
+  "state": "Rajasthan",
+  "union_territory": null,
+  "discom_short_code": null,
+  "consumer_category": "residential",
+  "tariff_version": "RJ-DISCOMS-LT1-FY2026-27",
+  "tariff_name": "Rajasthan DISCOMs Domestic (LT-1) - FY 2026-27",
+  "effective_from": "2026-04-01",
+  "effective_to": null,
+  "fixed_charge_basis": "inr_per_connection_per_month",
+  "verification_status": "verified",
+  "active": true,
+  "source": {
+    "name": "Rajasthan Electricity Regulatory Commission (RERC)",
+    "url": "https://rerc.rajasthan.gov.in/rerc-user-files/tariff-orders",
+    "document": "RERC Order dated 30.03.2026, Petition Nos. 2378/2025, 2379/2025, 2380/2025 - True up FY 2024-25 and ARR, Tariff and Investment Plan for FY 2026-27 of JVVNL, AVVNL and JdVVNL",
+    "order_number": "Petition Nos. 2378/2025, 2379/2025, 2380/2025",
+    "order_date": "2026-03-30",
+    "page": "PDF page 333 of 342 (Annexure C); effective-date clause 5.9.18 on page 231",
+    "table": "Annexure C - Approved Tariff for FY 2026-27 - Tariff for Retail Consumers - DOMESTIC CATEGORY (LT-1 and HT-1), Approved Tariff column",
+    "section": "Tariff Orders list, row 6 (Discoms, order date 30/03/2026) -> View",
+    "excerpt": "General Domestic 1-4, Approved Tariff: first 50 units per month Rs. 4.75 per unit; above 50 and up to 150 Rs. 6.00; above 150 and up to 500 Rs. 7.00; above 500 Rs. 7.50. Fixed Rs. 150 / 300 / 500 / 800 per connection per month for General Domestic 1 / 2 / 3 / 4. Clause 5.9.18: 'This tariff order shall come into force from 01.04.2026 and remain in force till the next tariff order of the Commission.'",
+    "last_verified": "2026-09-19"
+  },
+  "verification_notes": "One common schedule for all three Rajasthan DISCOMs (JVVNL, AVVNL, JdVVNL): the order is a single combined order for all three petitions, so this is stored as a state-level row. The fixed charge is set by the bracket the month's total consumption falls in (General Domestic 1: up to 150 units Rs 150; 2: up to 300 Rs 300; 3: up to 500 Rs 500; 4: above 500 Rs 800, per connection per month). The order's energy band 'above 150 and up to 500 units' (Rs 7.00) is split at 300 units in this data only so the bracket fixed charge can be expressed; both halves carry the same official rate. The BPL / Astha card holder and 'small domestic' tariff needs card status, which is not collected, and is not modelled. The documents are served through the 'View' button of the RERC tariff-orders page (an ASP.NET postback), so no stable direct PDF link exists; the PDF pages cited are pages of that downloaded document. The order's 'Existing Tariff' column equals its 'Approved Tariff' column, i.e. the rates are unchanged from the FY 2025-26 order.",
+  "slabs": [
+    {
+      "slab_min_kwh": 0,
+      "slab_max_kwh": 50,
+      "energy_charge_inr_per_kwh": 4.75,
+      "fixed_charge_inr": 150
+    },
+    {
+      "slab_min_kwh": 50,
+      "slab_max_kwh": 150,
+      "energy_charge_inr_per_kwh": 6.0,
+      "fixed_charge_inr": 150
+    },
+    {
+      "slab_min_kwh": 150,
+      "slab_max_kwh": 300,
+      "energy_charge_inr_per_kwh": 7.0,
+      "fixed_charge_inr": 300
+    },
+    {
+      "slab_min_kwh": 300,
+      "slab_max_kwh": 500,
+      "energy_charge_inr_per_kwh": 7.0,
+      "fixed_charge_inr": 500
+    },
+    {
+      "slab_min_kwh": 500,
+      "slab_max_kwh": null,
+      "energy_charge_inr_per_kwh": 7.5,
+      "fixed_charge_inr": 800
+    }
+  ]
+}

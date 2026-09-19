@@ -1,0 +1,34 @@
+{
+  "state": "Tamil Nadu",
+  "union_territory": null,
+  "discom_short_code": "TNPDCL",
+  "consumer_category": "residential",
+  "tariff_version": "TN-TNPDCL-LT-IA-2025.07",
+  "tariff_name": "TNPDCL LT Tariff I-A (Domestic) - approved tariff before Government of Tamil Nadu subsidy",
+  "effective_from": "2025-07-01",
+  "effective_to": null,
+  "fixed_charge_basis": "inr_per_kw_per_month",
+  "verification_status": "verified",
+  "active": true,
+  "source": {
+    "name": "Tamil Nadu Electricity Regulatory Commission (TNERC)",
+    "url": "https://www.tnerc.tn.gov.in/Orders/files/TO-Order%20No6300620252111.pdf",
+    "document": "TNERC Suo-motu Order No. 6 of 2025 dated 30-06-2025, Determination of Tariff for Distribution for FY 2025-26 (TNPDCL Tariff Order, 2025), effective from 01-07-2025",
+    "order_number": "Suo-motu Order No. 6 of 2025",
+    "order_date": "2025-06-30",
+    "page": "34 (PDF page 34 of 53)",
+    "table": "3.2.2 Low Tension Tariff I-A: (Domestic, Multi-tenements, Old age homes, Handlooms) - For FY 2025-26",
+    "section": "Chapter 3, clause 3.2.2",
+    "excerpt": "From 0 to 200 units per month or 0-400 units for two months: 495; 201 to 250 units (401 to 500 for two months): 665; 251 to 300: 880; 301 to 400: 995; 401 to 500: 1105; 501 units and above: 1215 (energy charges in paise/kWh). Fixed Charges (Rupees per kW per month): Nil. Note: '*To be partly subsidised by the Government'.",
+    "last_verified": "2026-09-19"
+  },
+  "verification_notes": "Cross-checked against (1) TNPDCL's own tariff page https://www.tnpdcl.org/en/tnpdcl/billing-services/schedules-tariff/ (last updated 8 Sept 2026), which links this same order as the tariff order; the DISCOM's copy is byte-identical to the TNERC copy (same SHA-256). (2) TNERC Order No. 4 of 2026 dated 27-04-2026 (Provisional Tariff Subsidy Order for FY 2026-27), pages 7-9, restating the approved domestic energy charges with effect from 01-07-2025 and recording that the Government has committed to 'No tariff hike to the Domestic consumers (LT IA)'. Currentness: the order says FY 2026-27 tariff undergoes an inflation-based adjustment from 01 July 2026, but no revised order was published on TNERC's tariff-orders page as of 2026-09-19 and TNPDCL still lists this order; re-verify if TNERC publishes one. IMPORTANT: these are the APPROVED tariff rates. The Government of Tamil Nadu pays a per-unit subsidy under TNERC Order No. 4 of 2026 (for example, the first 100 units per two months are free to domestic consumers), so a household's actual bill is lower than this estimate. The subsidy is not modelled. Electricity duty/tax is levied in addition 'in accordance with the Government of Tamil Nadu stipulations' (Order 6 of 2025, clause 3.2.1(m)) and is not included.",
+  "slabs": [
+    { "slab_min_kwh": 0, "slab_max_kwh": 200, "energy_charge_inr_per_kwh": 4.95, "fixed_charge_inr": 0 },
+    { "slab_min_kwh": 200, "slab_max_kwh": 250, "energy_charge_inr_per_kwh": 6.65, "fixed_charge_inr": 0 },
+    { "slab_min_kwh": 250, "slab_max_kwh": 300, "energy_charge_inr_per_kwh": 8.80, "fixed_charge_inr": 0 },
+    { "slab_min_kwh": 300, "slab_max_kwh": 400, "energy_charge_inr_per_kwh": 9.95, "fixed_charge_inr": 0 },
+    { "slab_min_kwh": 400, "slab_max_kwh": 500, "energy_charge_inr_per_kwh": 11.05, "fixed_charge_inr": 0 },
+    { "slab_min_kwh": 500, "slab_max_kwh": null, "energy_charge_inr_per_kwh": 12.15, "fixed_charge_inr": 0 }
+  ]
+}

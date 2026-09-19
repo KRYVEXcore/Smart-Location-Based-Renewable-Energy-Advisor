@@ -1,0 +1,34 @@
+{
+  "state": "Karnataka",
+  "union_territory": null,
+  "discom_short_code": null,
+  "consumer_category": "residential",
+  "tariff_version": "KA-ESCOMS-LT1-FY2025-26",
+  "tariff_name": "Karnataka ESCOMs LT-1 Domestic - FY 2025-26",
+  "effective_from": "2025-04-01",
+  "effective_to": "2026-03-31",
+  "fixed_charge_basis": "inr_per_kw_per_month",
+  "verification_status": "verified",
+  "active": true,
+  "source": {
+    "name": "Karnataka Electricity Regulatory Commission (KERC)",
+    "url": "https://kerc.karnataka.gov.in/uploads/96731743148968.pdf",
+    "document": "KERC Combined Tariff Order 2025 for ESCOMs (BESCOM, MESCOM, CESC, HESCOM, GESCOM) dated 27.03.2025, control period FY2025-26 to FY2027-28",
+    "order_number": "Combined Tariff Order 2025 dated 27.03.2025",
+    "order_date": "2025-03-27",
+    "page": "PDF page 550 (printed 534); effective-date clause: printed page 260",
+    "table": "Annexure 9 - TARIFF SCHEDULE LT-1",
+    "section": "Tariff Schedule LT-1 (residential houses)",
+    "excerpt": "TARIFF SCHEDULE LT-1: Fixed Charges (Per KW / Month of sanctioned load): FY2025-26 Rs.145/-; Energy Charges (Per kWh): FY2025-26 580 paise.",
+    "last_verified": "2026-09-19"
+  },
+  "verification_notes": "Common tariff for all five ESCOMs: the annexure is titled 'Tariff Order 2025 All ESCOMs' and Chapter 6 (page 197, 'Uniform Tariff Across ESCOMs') records the State policy of uniform tariff across ESCOMs. Hukeri Rural Electric Co-operative Society has its own separate order and is not covered. Effective dates: order paragraph 2 (printed page 260): 'shall come into effect from 1st April-2025 for FY2025-26, 1st April-2026 for FY2026-27 and 1st April-2027 for FY2027-28 and would remain in force until further orders'. Cross-checks: (1) KERC's own 'Tariff Charges approved by the Commission for the Control Period' table (https://kerc.karnataka.gov.in/uploads/85821743074692.pdf, page 1); (2) BESCOM's own 'Electricity Tariff-2026 to 2028' (https://bescom.karnataka.gov.in/uploads/media_to_upload1775021662.pdf, printed page 16). Amendments checked: the corrigendum dated 26.05.2025 and Review Petition 8/2025 order dated 03.03.2026 do not change LT-1. The fixed charge is per kW of SANCTIONED LOAD, which this app does not collect, so it is recorded with its true basis and is not billed. LT-1 also covers government/local-body run schools and colleges; private educational institutions are billed under LT-2, which is not seeded because ownership is not collected.",
+  "slabs": [
+    {
+      "slab_min_kwh": 0,
+      "slab_max_kwh": null,
+      "energy_charge_inr_per_kwh": 5.8,
+      "fixed_charge_inr": 145
+    }
+  ]
+}

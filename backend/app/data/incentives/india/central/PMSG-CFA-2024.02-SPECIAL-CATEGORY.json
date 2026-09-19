@@ -1,0 +1,72 @@
+{
+  "scheme_name": "PM Surya Ghar: Muft Bijli Yojana - Central Financial Assistance to Residential Consumers (capex mode)",
+  "scheme_version": "PMSG-CFA-2024.02-SPECIAL-CATEGORY",
+  "description": "The same PM Surya Ghar CFA at the higher special-category rates: Rs 33,000 per kWp for the first 2 kWp and Rs 19,800 for the third kWp; nothing beyond 3 kWp. Applies only in the special-category States/UTs named in clause 5(g) of the MNRE guideline.",
+  "level": "central",
+  "incentive_type": "central_financial_assistance",
+  "state": null,
+  "union_territory": null,
+  "discom_short_code": null,
+  "consumer_category": "residential",
+  "technology": "solar",
+  "min_system_size_kw": null,
+  "max_system_size_kw": 3,
+  "subsidy_type": "slab_based",
+  "subsidy_value": null,
+  "percentage_value": null,
+  "maximum_amount": null,
+  "calculation_rules": {
+    "slabs": [
+      { "capacity_min_kw": 0, "capacity_max_kw": 2, "rate_inr_per_kw": 33000 },
+      { "capacity_min_kw": 2, "capacity_max_kw": 3, "rate_inr_per_kw": 19800 }
+    ]
+  },
+  "eligibility_rules": {
+    "requires_fields": [],
+    "applies_only_to_states": [
+      "Uttarakhand",
+      "Himachal Pradesh",
+      "Arunachal Pradesh",
+      "Assam",
+      "Manipur",
+      "Meghalaya",
+      "Mizoram",
+      "Nagaland",
+      "Sikkim",
+      "Tripura"
+    ],
+    "applies_only_to_union_territories": [
+      "Jammu and Kashmir",
+      "Ladakh",
+      "Andaman and Nicobar Islands",
+      "Lakshadweep"
+    ]
+  },
+  "application_requirements": {
+    "apply_through_national_portal": true,
+    "grid_connected_system_on_a_residential_discom_connection": true,
+    "domestically_manufactured_modules_and_cells_required": true,
+    "cfa_available_once_per_installation": true,
+    "no_cfa_for_non_residential_consumers": true
+  },
+  "stacking_rules": {
+    "combinable_with_levels": ["state"]
+  },
+  "effective_from": "2024-02-13",
+  "effective_to": "2027-03-31",
+  "verification_status": "verified",
+  "active": true,
+  "source": {
+    "name": "Ministry of New and Renewable Energy (MNRE), Government of India",
+    "url": "https://cdnbbsr.s3waas.gov.in/s3716e1b8c6cd17b771da77391355749f3/uploads/2024/07/202407021768035484.pdf",
+    "document": "Guidelines for PM-Surya Ghar: Muft Bijli Yojana - Central Financial Assistance to Residential Consumers (OM No. 318/17/2024-GCRT dated 07.06.2024, published on MNRE 02.07.2024)",
+    "order_number": "OM No. 318/17/2024-GCRT dated 07.06.2024",
+    "order_date": "2024-06-07",
+    "page": "6 (clauses 5(g) and 5(h))",
+    "table": "Clause 5(h) 'Effective CFA' table, column 'CFA (Special Category States)'",
+    "section": "Clause 5(g) Benchmark Cost; clause 5(h) Effective CFA",
+    "excerpt": "Clause 5(g): The benchmark for special category States (States/UTs of Uttarakhand, Himachal Pradesh, J&K, Ladakh, States in the North East including Sikkim, UTs of A&N and Lakshadweep) will be Rs 55,000 for first 2 kW of RTS capacity and Rs 49,500 for the additional kW of RTS capacity. Clause 5(h) CFA (Special Category States): first 2 kWp Rs 33,000/kWp; additional 1 kWp Rs 19,800/kWp; additional RTS capacity beyond 3 kWp: No additional CFA.",
+    "last_verified": "2026-09-19"
+  },
+  "verification_notes": "Rates read directly from the MNRE guideline PDF (SHA-256 2de9b3faf765c18b...). The guideline lists categories, not names: 'States in the North East including Sikkim' is applied as the eight NE States (Arunachal Pradesh, Assam, Manipur, Meghalaya, Mizoram, Nagaland, Tripura, Sikkim). The maximum for a 3 kW system (2 x 33,000 + 19,800 = Rs 85,800) is derived arithmetic that the guideline does not state, so maximum_amount is left empty and the slab calculation produces it. See the PMSG-CFA-2024.02-STANDARD row for the amendment check (OM dated 13.02.2025 changes no amount), the 2026 status check and the stacking basis."
+}

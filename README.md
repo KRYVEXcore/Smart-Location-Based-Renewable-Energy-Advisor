@@ -137,8 +137,8 @@ renewable-energy-advisor/
 │   │   │   └── financial/                  Phase 10
 │   │   └── ml/                             Prediction models (Phase 14)
 │   ├── alembic/                    Database migrations (versions/, env.py)
-│   ├── scripts/                    seed_tariffs.py, seed_incentives.py — one-off, reviewed
-│   │                                 data-loading scripts, not run automatically
+│   ├── scripts/                    seed_all.py (seed_discoms/tariffs/incentives), data_quality_report.py —
+│   │                                 reviewed, idempotent data loading; RUN_DATA_SEED=true runs it on start
 │   └── tests/
 │
 ├── docs/                          Reserved for future architecture/API docs
@@ -884,23 +884,36 @@ that comparison.
 `GET /api/v1/tariffs?state=...&union_territory=...&consumer_category=...&discom_id=...`
 — a filtered raw-slab lookup for browsing/debugging what's configured.
 
-### India tariff data coverage
+### India tariff data coverage (verified in Phase 6.7)
 
-Per this project's standing rule — **prefer NO DATA over FAKE DATA** — a
-state is only seeded once its slabs, rates, and charges are confirmed from
-an actual official source (a state Electricity Regulatory Commission, an
-official DISCOM page, or an official tariff order/notification). Tamil
-Nadu, Maharashtra, Karnataka, Kerala, and Rajasthan were investigated for
-this phase; in every case a real official source was located, but this
-phase's tooling could not extract a complete, exact slab table from it
-with enough confidence to store as authoritative data (see
+Per this project's standing rule — **real data > no data > fake data** — a
+tariff is only seeded once its slabs, rates and charges were read from a
+primary official document (state regulator order or DISCOM publication)
+and the exact page/table is recorded. Verified and seeded (residential
+only): **Tamil Nadu** (TNPDCL), **Karnataka** (all ESCOMs), **Rajasthan**
+(all three DISCOMs) and **Maharashtra** (MSEDCL — verified, but Maharashtra
+locations resolve as DISCOM-`ambiguous` because Mumbai has other licensees,
+so it is reported as blocked, never guessed). Kerala was verified but is
+**not seeded**: its non-telescopic billing above 250 units/month cannot be
+represented by the engine. Every other State/UT is unconfigured and answers
+`tariff_not_configured`.
+
+Every row carries `source_name`, `source_url`, `source_document`,
+`source_order_number`, `source_order_date`, `source_page`, `source_table`,
+`source_section`, `source_excerpt`, `verification_status`,
+`verification_notes` and `last_verified`; the dashboard shows them under
+"Verified against an official source". Only `verified` + `active` rows are
+ever used for a bill. Fixed charges record what they are charged *per*
+(`fixed_charge_basis`): a per-kW charge is never turned into a flat monthly
+amount. See [`docs/data-verification/`](docs/data-verification/) for the
+research log, coverage report and the generated data-quality report, and
 [`backend/app/data/tariffs/india/README.md`](backend/app/data/tariffs/india/README.md)
-for the full per-state record, including the sources found). **All five
-remain unconfigured** — `POST /api/v1/tariffs/calculate` correctly returns
-`tariff_not_configured` for them today. The seed-loading mechanism
-(`backend/scripts/seed_tariffs.py`) and file format are ready for real data
-to be added once someone can verify it directly against a primary
-document.
+for the file format.
+
+Seeding: `python -m scripts.seed_all [--dry-run] [--expect-database NAME]`
+(from `backend/`) validates every data file, then upserts DISCOMs, tariffs
+and incentives in one transaction. It is idempotent and never deletes a row.
+On Render the container runs it on start when `RUN_DATA_SEED=true`.
 
 ### Reproducibility
 
@@ -1055,24 +1068,23 @@ programmes are always included, never hidden.
 — a filtered raw-programme lookup for browsing/debugging what's
 configured.
 
-### India incentive data coverage
+### India incentive data coverage (verified in Phase 6.7)
 
-Per this project's standing rule — **prefer NO DATA over FAKE DATA** — a
-scheme is only seeded once its rates, capacity limits, and conditions are
-confirmed from an actual official source (MNRE, a state renewable-energy
-nodal agency, or an official gazette/notification). PM Surya Ghar (central)
-and five states (Tamil Nadu, Maharashtra, Karnataka, Kerala, Rajasthan)
-were investigated for this phase; official sources were located for all of
-them, but none could be confidently verified with this phase's tooling —
-see
-[`backend/app/data/incentives/india/README.md`](backend/app/data/incentives/india/README.md)
-for the full record, including exactly which documents were found and why
-each couldn't be read. **Zero `IncentiveProgram` rows are seeded.** The
-architecture supports all 28 states and 8 union territories; the verified
-dataset is currently empty for all of them — see that README for the
-explicit architecture-coverage-vs-data-coverage distinction. The seed
-mechanism (`backend/scripts/seed_incentives.py`) is ready for real data
-once someone can verify it directly against a primary document.
+A scheme is only seeded once its rates, capacity limits and conditions
+were read from a primary official document. Verified and seeded: **PM
+Surya Ghar: Muft Bijli Yojana** — Central Financial Assistance to
+residential consumers (MNRE guideline OM No. 318/17/2024-GCRT): Rs 30,000
+per kW for the first 2 kW and Rs 18,000 for the third kW, nothing beyond
+3 kW (max Rs 78,000), and Rs 33,000 / Rs 19,800 for the special-category
+States/UTs (a separate row, chosen by region via `eligibility_rules`, see
+`app.engines.incentive.scope`). It is residential-only, so a college, shop
+or office is reported `not_eligible`. Valid until the guideline's
+implementation end, 2027-03-31.
+
+**State and DISCOM incentives: none verified.** The five priority states
+were checked in official pages and no state amount was found; nothing is
+seeded for them. See [`docs/data-verification/`](docs/data-verification/)
+and [`backend/app/data/incentives/india/README.md`](backend/app/data/incentives/india/README.md).
 
 ### Reproducibility
 

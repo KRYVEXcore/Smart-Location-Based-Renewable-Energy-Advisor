@@ -4,11 +4,11 @@ import {
   CheckCircle2,
   ChevronDown,
   CircleHelp,
-  ExternalLink,
   Gift,
   MinusCircle,
   XCircle,
 } from 'lucide-react'
+import { SourceEvidence } from '../common/SourceEvidence'
 import type { IncentiveEligibilityResult, IncentiveEligibilityStatus, IncentiveEvaluationResponse } from '../../types/incentive'
 
 interface GovernmentIncentivesSectionProps {
@@ -109,26 +109,22 @@ function ProgrammeCard({ programme }: { programme: IncentiveEligibilityResult })
                 : 'Whether this programme can be combined with another eligible one shown here has not been verified.'}
             </p>
           )}
-          {(programme.effective_from || programme.effective_to) && (
-            <p className="text-xs text-slate-400">
-              Effective: {programme.effective_from ?? '—'} – {programme.effective_to ?? 'ongoing'}
-            </p>
-          )}
-          {programme.source?.source_name && (
-            <p className="text-xs text-slate-400">
-              Source: {programme.source.source_name}
-              {programme.source.last_verified ? ` (verified ${programme.source.last_verified})` : ''}
-            </p>
-          )}
-          {programme.source?.source_url && (
-            <a
-              href={programme.source.source_url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline"
-            >
-              Official source <ExternalLink className="h-3 w-3" aria-hidden="true" />
-            </a>
+          {programme.source && (
+            <SourceEvidence
+              verificationStatus={programme.source.verification_status}
+              organisation={programme.source.source_name}
+              document={programme.source.source_document}
+              orderNumber={programme.source.source_order_number}
+              orderDate={programme.source.source_order_date}
+              page={programme.source.source_page}
+              table={programme.source.source_table}
+              section={programme.source.source_section}
+              effectiveFrom={programme.effective_from}
+              effectiveTo={programme.effective_to}
+              lastVerified={programme.source.last_verified}
+              url={programme.source.source_url}
+              notes={programme.source.verification_notes}
+            />
           )}
         </div>
       )}

@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from app.engines.tariff.tariff_engine import calculate_bill_for_grid_consumption
 from app.engines.tariff.version import ENGINE_CALCULATION_VERSION
-from app.models.enums import TariffConsumerCategory
+from app.models.enums import FixedChargeBasis, TariffConsumerCategory
 from app.schemas.tariff import TariffSlabInput
 
 BASE = dict(
@@ -14,7 +14,7 @@ BASE = dict(
 
 CANDIDATE_ROWS = [
     TariffSlabInput(**BASE, slab_min_kwh=Decimal("0"), slab_max_kwh=Decimal("100"), energy_charge_inr_per_kwh=Decimal("3.00")),
-    TariffSlabInput(**BASE, slab_min_kwh=Decimal("100"), slab_max_kwh=None, energy_charge_inr_per_kwh=Decimal("5.00"), fixed_charge_inr=Decimal("50.00")),
+    TariffSlabInput(**BASE, slab_min_kwh=Decimal("100"), slab_max_kwh=None, energy_charge_inr_per_kwh=Decimal("5.00"), fixed_charge_inr=Decimal("50.00"), fixed_charge_basis=FixedChargeBasis.INR_PER_MONTH),
 ]
 
 

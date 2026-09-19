@@ -1,0 +1,72 @@
+{
+  "scheme_name": "PM Surya Ghar: Muft Bijli Yojana - Central Financial Assistance to Residential Consumers (capex mode)",
+  "scheme_version": "PMSG-CFA-2024.02-STANDARD",
+  "description": "Central Financial Assistance for grid-connected residential rooftop solar under PM Surya Ghar: Muft Bijli Yojana (MNRE). Rs 30,000 per kWp for the first 2 kWp and Rs 18,000 for the third kWp; nothing beyond 3 kWp. This row applies everywhere except the special-category States/UTs, which have a separate row with higher rates.",
+  "level": "central",
+  "incentive_type": "central_financial_assistance",
+  "state": null,
+  "union_territory": null,
+  "discom_short_code": null,
+  "consumer_category": "residential",
+  "technology": "solar",
+  "min_system_size_kw": null,
+  "max_system_size_kw": 3,
+  "subsidy_type": "slab_based",
+  "subsidy_value": null,
+  "percentage_value": null,
+  "maximum_amount": 78000,
+  "calculation_rules": {
+    "slabs": [
+      { "capacity_min_kw": 0, "capacity_max_kw": 2, "rate_inr_per_kw": 30000 },
+      { "capacity_min_kw": 2, "capacity_max_kw": 3, "rate_inr_per_kw": 18000 }
+    ]
+  },
+  "eligibility_rules": {
+    "requires_fields": [],
+    "excluded_states": [
+      "Uttarakhand",
+      "Himachal Pradesh",
+      "Arunachal Pradesh",
+      "Assam",
+      "Manipur",
+      "Meghalaya",
+      "Mizoram",
+      "Nagaland",
+      "Sikkim",
+      "Tripura"
+    ],
+    "excluded_union_territories": [
+      "Jammu and Kashmir",
+      "Ladakh",
+      "Andaman and Nicobar Islands",
+      "Lakshadweep"
+    ]
+  },
+  "application_requirements": {
+    "apply_through_national_portal": true,
+    "grid_connected_system_on_a_residential_discom_connection": true,
+    "domestically_manufactured_modules_and_cells_required": true,
+    "cfa_available_once_per_installation": true,
+    "no_cfa_for_non_residential_consumers": true
+  },
+  "stacking_rules": {
+    "combinable_with_levels": ["state"]
+  },
+  "effective_from": "2024-02-13",
+  "effective_to": "2027-03-31",
+  "verification_status": "verified",
+  "active": true,
+  "source": {
+    "name": "Ministry of New and Renewable Energy (MNRE), Government of India",
+    "url": "https://cdnbbsr.s3waas.gov.in/s3716e1b8c6cd17b771da77391355749f3/uploads/2024/07/202407021768035484.pdf",
+    "document": "Guidelines for PM-Surya Ghar: Muft Bijli Yojana - Central Financial Assistance to Residential Consumers (OM No. 318/17/2024-GCRT dated 07.06.2024, published on MNRE 02.07.2024)",
+    "order_number": "OM No. 318/17/2024-GCRT dated 07.06.2024",
+    "order_date": "2024-06-07",
+    "page": "5-7 (clauses 5(e), 5(g), 5(h), 5(i)); implementation period: clause 2(d), page 3",
+    "table": "Clause 5(h) 'Effective CFA' table",
+    "section": "Clause 5 Central Financial Assistance; clause 2(d) implementation period",
+    "excerpt": "Effective CFA: Residential Sector (first 2 kWp of RTS capacity or part thereof): Rs 30,000/kWp; Residential Sector (with additional RTS capacity of 1 kWp or part thereof): Rs 18,000/kWp; Residential Sector (additional RTS capacity beyond 3 kWp): No additional CFA. Example iii: a 6 kW system is eligible for 30,000x2 + 18,000x1 = 78,000. Clause 5(d): No CFA will be provided to non-residential segments of consumers (including government segment, commercial and industrial segment etc.). Clause 2(d): The implementation period of the scheme shall be till 31st March, 2027.",
+    "last_verified": "2026-09-19"
+  },
+  "verification_notes": "Amounts read directly from the MNRE guideline PDF (SHA-256 2de9b3faf765c18b..., 57 pages). Amendment check: MNRE Office Memorandum No. 318/140/2024-GCRT Part (1) dated 13.02.2025 clarifies that ground-mounted elevated installations are allowed and does NOT change any CFA amount; no other change to the CFA rates was found on MNRE's PM Surya Ghar document list. 2026 status: PIB press release of 24 Mar 2026 confirms MNRE is implementing the scheme (target one crore households by FY 2026-27), so it is not treated as expired; effective_to is the guideline's own implementation end (31 Mar 2027) and a later extension would be added as a new version. Cross-check: TNPDCL's published 'Subsidy Structure of PM-Surya Ghar Scheme' (1 kW Rs 30,000; 2 kW Rs 60,000; 3 kW and above Rs 78,000) matches. The special-category States/UTs listed in clause 5(g) (Uttarakhand, Himachal Pradesh, J&K, Ladakh, North-East States including Sikkim, A&N Islands, Lakshadweep) are excluded here and covered by the PMSG-CFA-2024.02-SPECIAL-CATEGORY row; 'States in the North East' is applied as the eight NE States. Stacking: clause 5(i) allows State/UT governments to supplement the CFA, so central + state is recorded as combinable; combinability with DISCOM incentives is not stated and is left unverified. The CFA is by installed module DC capacity (clause 5(k)); domestic-content modules are required (clause 5(m)). This app does not check those conditions and reports the amount as the scheme's entitlement for the proposed capacity only."
+}
