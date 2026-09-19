@@ -40,7 +40,7 @@ subclass and one branch in `build_provider()`.
 | --- | --- | --- |
 | `NVIDIA_API_KEY` | unset | API key. **Backend/Render only.** Never in the frontend, GitHub Pages variables or Git |
 | `AI_PROVIDER` | `nvidia_nim` | Only adapter available |
-| `AI_MODEL` | `nvidia/nemotron-nano-3-30b-a3b` | Smallest chat-capable Nemotron on the NVIDIA API Catalog list when chosen (30B total, ~3B active). Verify it is still listed before relying on it |
+| `AI_MODEL` | `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` | A small (30B total, ~3B active) Nemotron that answered on the hosted API with the key used for verification. `nvidia/nemotron-nano-3-30b-a3b` appears in the public model list but returned 404 "Not found for account", so a model being listed does not mean it is invocable; the reasoning text it returns separately is ignored |
 | `AI_BASE_URL` | `https://integrate.api.nvidia.com/v1` | NIM endpoint |
 | `AI_TIMEOUT_SECONDS` | 30 | Provider timeout |
 | `AI_MAX_OUTPUT_TOKENS` | 800 | Output bound |
@@ -101,7 +101,7 @@ That is not a recommendation and the context says so.
 One provider request per submitted message; no call on page load, while typing or on retry;
 compact context (~1-2k tokens); last 6 turns; 800-token output cap; 30-second timeout; in-memory
 rate limits (10/min per assessment, 30/min overall - per process, assumes one API instance);
-mocked tests; one real verification request.
+mocked tests; only a handful of real verification requests.
 
 ## Limitations
 

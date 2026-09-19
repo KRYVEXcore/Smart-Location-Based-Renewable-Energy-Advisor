@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     # sent to the browser or to the model, and the advisor reports
     # "ai_not_configured" (never a fabricated answer) while it is unset.
     ai_provider: str = "nvidia_nim"
-    ai_model: str = "nvidia/nemotron-nano-3-30b-a3b"
+    ai_model: str = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
     ai_base_url: str = "https://integrate.api.nvidia.com/v1"
     nvidia_api_key: str | None = None
     ai_timeout_seconds: float = 30.0
