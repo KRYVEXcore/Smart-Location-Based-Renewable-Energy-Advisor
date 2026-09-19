@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,6 +15,17 @@ class Settings(BaseSettings):
         "postgresql+psycopg2://postgres:postgres@localhost:5432/renewable_energy_advisor"
     )
     cors_allowed_origins: str = "http://localhost:5173"
+
+    @field_validator("database_url")
+    @classmethod
+    def _use_psycopg2_driver(cls, value: str) -> str:
+        # Managed hosts (Render, Heroku) hand out plain postgres:// or
+        # postgresql:// URLs, which SQLAlchemy would resolve to a driver
+        # this project doesn't install.
+        for prefix in ("postgres://", "postgresql://"):
+            if value.startswith(prefix):
+                return "postgresql+psycopg2://" + value[len(prefix):]
+        return value
 
     # Location intelligence providers (Phase 3). Every provider below has a
     # free, keyless default so the app runs locally with zero configuration.

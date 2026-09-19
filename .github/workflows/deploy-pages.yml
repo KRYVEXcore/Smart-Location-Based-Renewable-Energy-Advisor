@@ -1,11 +1,10 @@
 name: Deploy frontend to GitHub Pages
 
-# Builds and publishes only frontend/ as a static site. This is a UI-only
-# preview: there is no backend or database behind it, so anything that
-# calls the API (assessment submission, location lookup, solar/tariff
-# calculations) will show its normal "unable to load" error state rather
-# than actually work — see the root README for how to run the full stack
-# (Docker Compose or GitHub Codespaces).
+# Builds and publishes only frontend/ as a static site. GitHub Pages cannot
+# run a backend, so API calls go to whatever URL the API_BASE_URL repo
+# variable holds (the Render service, see render.yaml). With that variable
+# unset the site is a UI-only preview and API-backed features show their
+# normal error states.
 on:
   push:
     branches: [main]
@@ -41,6 +40,11 @@ jobs:
 
       - name: Build
         working-directory: frontend
+        env:
+          # Set under Settings > Secrets and variables > Actions > Variables.
+          # Unset means the site builds without a backend and API-backed
+          # features show their normal error states.
+          VITE_API_BASE_URL: ${{ vars.API_BASE_URL }}
         run: npm run build
 
       - name: Add SPA fallback for client-side routing
