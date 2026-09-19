@@ -23,6 +23,29 @@ transaction, never deleting), then starts the API. If migration or seed fails th
 marks the deploy failed and keeps serving the previous version. Production is never seeded from the local
 database.
 
+## Production audit (2026-09-19, from the public API)
+
+Render serves commit `4ae8958`. Counts come from `GET /api/v1/tariffs` and `/api/v1/incentives` on
+`https://renewable-energy-advisor-api.onrender.com`, not from estimates.
+
+| | Before | After |
+|---|---|---|
+| Tariff rows | 0 | **32** (all `verified` and active; 0 duplicate natural keys) |
+| Incentive rows | 0 | **2** (PM Surya Ghar standard and special-category, both `verified`) |
+| DISCOM rows | 0 (registry never seeded) | **5** as designed (TNPDCL, MSEDCL, BEST, AEML-D, TPC-D); the API has no DISCOM listing, so this is confirmed by behavior: Tamil Nadu resolves to exactly one DISCOM and Maharashtra to `ambiguous` |
+
+Tariff versions in production: Tamil Nadu 1, Andhra Pradesh 1, Karnataka 2, Maharashtra 2, Rajasthan 2.
+Live checks with real geocoding on production matched the local results (Chennai home Rs 9,330.00 and
+Rs 78,000 CFA; Chennai college no tariff and CFA `not_eligible`; Bengaluru Rs 5,510.00; Jaipur Rs 7,462.50;
+Vijayawada Rs 7,910.75; Pune `discom_ambiguous`; Kochi, Ahmedabad and Gangtok unconfigured or special-category).
+The public GitHub Pages flow (search, confirm, Home, 950 kWh, submit, dashboard) showed the same verified
+tariff and incentive with their source panels. Verification assessments were deleted afterwards.
+
+Deploy incident: the first production migration ran while the previous image was still the live service.
+That image cannot find the new Alembic revision, so it crash-looped until the new image came up
+(about 09:45-10:03). The seed is now serialised by a Postgres advisory lock, runs unbuffered, and a failed
+seed no longer stops the API.
+
 ## A. Architecture support
 
 The data model, engines, API and location/DISCOM resolution support every Indian State and
