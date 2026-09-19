@@ -42,6 +42,19 @@ class Settings(BaseSettings):
     elevation_provider: str = "open_elevation"
     elevation_api_key: str | None = None
 
+    # SHREA AI advisor (Phase 8). The API key is backend-only: it is never
+    # sent to the browser or to the model, and the advisor reports
+    # "ai_not_configured" (never a fabricated answer) while it is unset.
+    ai_provider: str = "nvidia_nim"
+    ai_model: str = "nvidia/nemotron-nano-3-30b-a3b"
+    ai_base_url: str = "https://integrate.api.nvidia.com/v1"
+    nvidia_api_key: str | None = None
+    ai_timeout_seconds: float = 30.0
+    ai_max_output_tokens: int = 800
+    ai_history_limit: int = 6
+    ai_rate_limit_per_minute: int = 10
+    ai_global_rate_limit_per_minute: int = 30
+
     # How long a fetched resource profile is considered fresh enough to
     # reuse from cache, in seconds. Climatology/elevation data changes
     # essentially never — this just avoids hammering free public APIs.

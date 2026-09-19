@@ -19,6 +19,7 @@ function App() {
           <Route path="/location" element={<LocationPage />} />
           <Route path="/monitoring" element={<MonitoringPage />} />
           <Route path="/advisor" element={<AdvisorPage />} />
+          <Route path="/advisor/:assessmentId" element={<AdvisorPage />} />
         </Routes>
       </MainLayout>
     </BrowserRouter>

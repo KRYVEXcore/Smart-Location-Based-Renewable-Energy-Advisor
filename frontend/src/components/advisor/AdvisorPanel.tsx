@@ -4,10 +4,11 @@ import { AdvisorChat } from './AdvisorChat'
 
 interface AdvisorPanelProps {
   open: boolean
+  assessmentId: string | null
   onClose: () => void
 }
 
-export function AdvisorPanel({ open, onClose }: AdvisorPanelProps) {
+export function AdvisorPanel({ open, assessmentId, onClose }: AdvisorPanelProps) {
   useEffect(() => {
     if (!open) return
 
@@ -44,7 +45,7 @@ export function AdvisorPanel({ open, onClose }: AdvisorPanelProps) {
         >
           <X className="h-4 w-4" />
         </button>
-        <AdvisorChat className="flex-1" />
+        <AdvisorChat assessmentId={assessmentId} className="flex-1" />
       </div>
     </div>
   )

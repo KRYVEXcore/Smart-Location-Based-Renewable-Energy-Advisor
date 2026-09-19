@@ -35,7 +35,7 @@ BACKEND API (FastAPI)
  |
  +--> DATABASE (PostgreSQL via SQLAlchemy)
  |
- +--> AI ADVISOR (future) --> structured requests --> engines --> explanation
+ +--> AI ADVISOR (SHREA AI, Phase 8) --> engine results as context --> explanation
  |
  +--> VOICE ADVISOR (future) --> speech-to-text --> AI Advisor --> text-to-speech
 ```
@@ -1111,15 +1111,23 @@ resource assessment or structural/site engineering assessment.** No cost,
 subsidy, savings or payback. Full method, curve, thresholds and limitations:
 [docs/wind-engine.md](docs/wind-engine.md).
 
-## SHREA AI UI (product branding, chat shell, monitoring)
+## SHREA AI (branding, AI Advisor, monitoring UI)
 
 The user-facing brand is **SHREA AI** (the repository keeps its descriptive name).
-The AI Advisor is a chat UI shell: there is no AI backend endpoint yet, so
-`services/advisorService.ts` rejects and the chat says "AI Advisor is not connected
-yet" — it never shows a fabricated reply. `/monitoring` and the homepage
-"Monitor Your Existing Renewable System" section have no device integration or
-telemetry store: they show an honest "No monitoring system connected" state, and the
-homepage dashboard is an explicitly labelled **UI Preview** with example values.
+
+**AI Advisor (Phase 8).** `POST /api/v1/advisor/chat` answers questions about one assessment.
+The backend builds the context itself from the existing Solar, Wind, Tariff and Incentive
+services and sends it, with a fixed system prompt, to NVIDIA NIM (Nemotron). The API key
+(`NVIDIA_API_KEY`) is backend-only; without it the chat says "SHREA AI isn't connected yet".
+**SHREA AI explains application results but does not replace the deterministic
+renewable-energy calculation engines**, and it never invents tariffs, incentives, wind or solar
+values, costs, savings or live readings. Details, limits and cost controls:
+[docs/ai-advisor.md](docs/ai-advisor.md).
+
+**Monitoring.** `/monitoring` and the homepage "Monitor Your Existing Renewable System" section
+have no device integration or telemetry store: they show an honest "No monitoring system
+connected" state, and the homepage dashboard is an explicitly labelled **UI Preview** with
+example values.
 
 ## Security Notes (Phases 2-6)
 

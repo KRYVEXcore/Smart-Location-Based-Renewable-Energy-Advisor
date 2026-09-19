@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import {
   AlertTriangle,
   BatteryCharging,
+  Bot,
   Gauge,
   Loader2,
   MapPin,
@@ -175,6 +176,11 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
           </span>
         </span>
       </div>
+
+      <Button to={`/advisor/${assessment.id}`} variant="secondary" className="mt-4">
+        <Bot className="h-4 w-4" aria-hidden="true" />
+        Ask SHREA AI about this assessment
+      </Button>
 
       <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <MetricCard
