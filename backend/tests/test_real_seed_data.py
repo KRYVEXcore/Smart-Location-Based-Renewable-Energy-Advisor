@@ -531,3 +531,11 @@ def test_a_state_with_no_verified_tariff_stays_unconfigured_never_zero(client, v
         assert body["status"] == "tariff_not_configured"
         assert body["estimated_monthly_bill_inr"] is None
         assert body["charges"] == []
+
+
+def test_the_seed_lock_is_a_harmless_no_op_outside_postgres(db_session):
+    from scripts._seed_common import lock_for_seeding
+
+    lock_for_seeding(db_session)  # SQLite: nothing to lock, must not raise
+    _seed_everything(db_session)
+    assert _counts(db_session)[0] == 5

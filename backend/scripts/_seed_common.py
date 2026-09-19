@@ -68,6 +68,21 @@ def describe_database(session: Session) -> str:
     return f"{url.host or 'local'}:{url.port or ''}/{url.database} [{url.drivername}] alembic={revision}"
 
 
+SEED_LOCK_ID = 6_700_701
+
+
+def lock_for_seeding(session: Session) -> None:
+    """Serialises concurrent seeders (e.g. two Render containers starting at
+    once): the second waits for the first to commit, then sees its rows and
+    inserts nothing. lock_timeout turns a stuck wait into a loud error
+    instead of a silent hang. Held until the transaction ends.
+    """
+    if session.get_bind().dialect.name != "postgresql":
+        return
+    session.execute(text("SET LOCAL lock_timeout = '90s'"))
+    session.execute(text("SELECT pg_advisory_xact_lock(:id)"), {"id": SEED_LOCK_ID})
+
+
 def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--dry-run", action="store_true", help="Validate and report; write nothing.")
     parser.add_argument(

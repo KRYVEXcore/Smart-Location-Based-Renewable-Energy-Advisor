@@ -30,6 +30,7 @@ from scripts._seed_common import (
     add_common_arguments,
     assert_expected_database,
     describe_database,
+    lock_for_seeding,
     sync_attributes,
 )
 
@@ -150,6 +151,7 @@ def seed_all(
     total = SeedStats()
     try:
         assert_expected_database(session, expect_database)
+        lock_for_seeding(session)
         print(f"[incentives] target: {describe_database(session)}")
         before = session.query(IncentiveProgram).count()
         for _, record in incentives:

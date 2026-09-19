@@ -5,6 +5,24 @@ data has actually been *verified*. It does **not** claim India is covered. Row-l
 [data-quality-report.md](data-quality-report.md) (generated) and
 [tariff-and-incentive-research.md](tariff-and-incentive-research.md) (evidence).
 
+## Status summary
+
+| Status | Tariffs (residential) | Incentives |
+|---|---|---|
+| **VERIFIED and seeded** | Tamil Nadu, Andhra Pradesh, Karnataka, Rajasthan, Maharashtra (see B for usability) | PM Surya Ghar CFA (standard and special-category rows) |
+| **PENDING REVIEW** (verified data, deliberately not seeded) | Kerala (engine cannot bill non-telescopic slabs), Gujarat (RGP vs RGP-Rural cannot be told apart) | Karnataka rooftop fixed-charge rebate (recurring, not a one-time incentive) |
+| **NOT VERIFIED** | Delhi (controlling order not identified), Telangana (order not read), all non-residential categories | State and DISCOM incentives in the five priority states (nothing found) |
+| **EXPIRED / SUPERSEDED** | none seeded as current. Superseded rows are kept as history (Maharashtra and Karnataka FY2025-26, Rajasthan before FY2026-27) and are only selected for past dates; the pre-2025-10-01 Rajasthan tariff and the MERC 28-03-2025 / 25-06-2025 schedules are not stored | none |
+| **NOT RESEARCHED** | 27 other States/UTs (section E) | State/UT incentives outside the five priority states; DISCOM incentives everywhere |
+
+## Production behavior
+
+The Render container runs `alembic upgrade head`, then, because `RUN_DATA_SEED=true` in `render.yaml`,
+`python -m scripts.seed_all` (validate, then idempotent upsert of DISCOMs, tariffs, incentives, in one
+transaction, never deleting), then starts the API. If migration or seed fails the container exits, Render
+marks the deploy failed and keeps serving the previous version. Production is never seeded from the local
+database.
+
 ## A. Architecture support
 
 The data model, engines, API and location/DISCOM resolution support every Indian State and

@@ -7,15 +7,18 @@ set -e
 python -m alembic upgrade head
 
 # Opt-in (RUN_DATA_SEED=true): loads the verified DISCOM/tariff/incentive data
-# from app/data/. Validated first and idempotent (upsert, never deletes), so
-# running it on every start is a safe no-op once the data is current. It logs
-# the target database (password hidden) so the operator can confirm it.
+# from app/data/. Validated first, idempotent (upsert, never deletes) and
+# serialised by a Postgres advisory lock, so concurrent starts cannot create
+# duplicates. It logs the target database (password hidden). -u keeps the
+# output unbuffered so progress is visible in the deploy log.
 # SEED_EXPECT_DATABASE, if set, aborts the seed unless the database name matches.
+# A failed seed is logged loudly but does not stop the API: it then serves
+# whatever data already exists (unconfigured states answer honestly).
 if [ "$RUN_DATA_SEED" = "true" ]; then
   if [ -n "$SEED_EXPECT_DATABASE" ]; then
-    python -m scripts.seed_all --expect-database "$SEED_EXPECT_DATABASE"
+    python -u -m scripts.seed_all --expect-database "$SEED_EXPECT_DATABASE" || echo "DATA SEED FAILED: starting the API without new data" >&2
   else
-    python -m scripts.seed_all
+    python -u -m scripts.seed_all || echo "DATA SEED FAILED: starting the API without new data" >&2
   fi
 fi
 
