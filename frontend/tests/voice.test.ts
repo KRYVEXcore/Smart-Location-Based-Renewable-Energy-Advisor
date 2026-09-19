@@ -49,9 +49,19 @@ class FakeRecognition implements RecognitionLike {
   }
 }
 
+// Every observable step, in order, so tests can assert what happened inside the user's tap.
+const order: string[] = []
+
 class FakeSpeech implements SpeechOutput {
   spoken: string[][] = []
   cancels = 0
+  primes = 0
+  primeNotice: string | null = null
+  prime() {
+    this.primes += 1
+    order.push('prime')
+    return this.primeNotice
+  }
   private done: (() => void) | null = null
   private failed: (() => void) | null = null
   speak(chunks: string[], onDone: () => void, onError: () => void) {
@@ -61,6 +71,7 @@ class FakeSpeech implements SpeechOutput {
   }
   cancel() {
     this.cancels += 1
+    order.push('cancel')
   }
   finishSpeaking() {
     this.done?.()
@@ -71,6 +82,7 @@ class FakeSpeech implements SpeechOutput {
 }
 
 function setup(options: { supported?: boolean; speech?: boolean } = {}) {
+  order.length = 0
   const recognitions: FakeRecognition[] = []
   const speech = options.speech === false ? null : new FakeSpeech()
   const submitted: string[] = []
@@ -83,10 +95,14 @@ function setup(options: { supported?: boolean; speech?: boolean } = {}) {
         : () => {
             const recognition = new FakeRecognition()
             recognitions.push(recognition)
+            order.push('recognition-created')
             return recognition
           },
     speech,
-    submit: (text) => submitted.push(text),
+    submit: (text) => {
+      order.push('submit')
+      submitted.push(text)
+    },
     onInterim: (text) => interim.push(text),
     onChange: (view) => views.push(view),
   })
@@ -96,6 +112,68 @@ function setup(options: { supported?: boolean; speech?: boolean } = {}) {
 }
 
 describe('voice conversation', () => {
+  it('primes speech synchronously inside the tap, before recognition starts', () => {
+    const t = setup()
+    t.controller.start()
+
+    // Nothing asynchronous has happened yet: no event fired, no timer, no reply.
+    assert.equal(t.speech?.primes, 1)
+    assert.deepEqual(order, ['cancel', 'prime', 'recognition-created'])
+    assert.ok(order.indexOf('prime') < order.indexOf('recognition-created'))
+  })
+
+  it('has primed speech before the advisor request is made', () => {
+    const t = setup()
+    t.controller.start()
+    t.current().begin()
+    t.current().say('How much electricity am I using?', true)
+
+    assert.ok(order.indexOf('prime') < order.indexOf('submit'))
+    assert.equal(t.submitted.length, 1)
+  })
+
+  it('primes on every explicit tap but creates no advisor request by itself', () => {
+    const t = setup()
+    t.controller.start()
+    t.current().begin()
+    t.controller.stop()
+    t.controller.start()
+
+    assert.equal(t.speech?.primes, 2)
+    assert.deepEqual(t.submitted, [])
+  })
+
+  it('shows the one-time activation notice the primer reports', () => {
+    const t = setup()
+    ;(t.speech as FakeSpeech).primeNotice = 'SHREA voice enabled.'
+    t.controller.start()
+
+    assert.equal(t.views[t.views.length - 1]?.state, 'requesting_permission')
+    assert.equal(t.views[t.views.length - 1]?.message, 'SHREA voice enabled.')
+  })
+
+  it('never primes automatically when listening resumes after a reply', () => {
+    const t = setup()
+    t.controller.start()
+    t.current().begin()
+    t.current().say('hello', true)
+    t.controller.advisorReplied('Answer.')
+    t.speech?.finishSpeaking()
+
+    assert.equal(t.recognitions.length, 2)
+    assert.equal(t.speech?.primes, 1) // only the tap primed
+  })
+
+  it('keeps going if priming throws', () => {
+    const t = setup()
+    ;(t.speech as FakeSpeech).prime = () => {
+      throw new Error('no speech engine')
+    }
+
+    assert.doesNotThrow(() => t.controller.start())
+    assert.equal(t.recognitions.length, 1)
+  })
+
   it('submits a final transcript exactly once', () => {
     const t = setup()
     t.controller.start()
@@ -257,7 +335,7 @@ describe('voice conversation', () => {
     t.speech?.failSpeaking()
 
     assert.equal(t.state(), 'error')
-    assert.equal(t.views[t.views.length - 1]?.message, VOICE_MESSAGES.speechFailed)
+    assert.equal(t.views[t.views.length - 1]?.message, VOICE_MESSAGES.playbackUnavailable)
     assert.equal(t.recognitions.length, 1)
   })
 
@@ -273,7 +351,7 @@ describe('voice conversation', () => {
 
     assert.doesNotThrow(() => t.controller.advisorReplied('Answer.'))
     assert.equal(t.state(), 'error')
-    assert.equal(t.views[t.views.length - 1]?.message, VOICE_MESSAGES.speechFailed)
+    assert.equal(t.views[t.views.length - 1]?.message, VOICE_MESSAGES.playbackUnavailable)
     assert.equal(t.recognitions.length, 1)
   })
 

@@ -125,6 +125,15 @@ prompt, rate limits and security model are unchanged, and the browser never hold
 - **Speech:** `speechSynthesis`, preferring an English (India) voice, then any English voice
   (no fixed voice name), rate 1 and pitch 1. Replies are stripped of `**`, `*`, `#` and backticks
   and queued as sentence-sized chunks (engines cut off very long utterances).
+- **Mobile playback:** mobile browsers (iOS Safari/WebKit especially) only allow speech tied to a
+  user gesture, but replies arrive asynchronously. So each microphone tap primes the speech engine
+  synchronously (`prime()` in `speechOutput.ts`: load voices, speak a silent empty utterance) before
+  recognition or any request. Every reply is then verified to actually start (one 3 s check, no
+  polling); if it never does, the reply stays as text with "Voice playback is unavailable on this
+  device. Text chat still works.", and the next tap speaks "SHREA voice enabled." once as a visible
+  activation. Utterances are kept referenced (engines can drop `end` events for collected ones) and
+  `cancel()` is only called when something is playing or queued (an immediate cancel-then-speak can
+  drop the utterance). Mobile behaviour is not proven by these tests; it needs a real device.
 - **Interrupt:** pressing the microphone while SHREA speaks cancels the speech queue and listens.
 - **Fallbacks:** no recognition -> a short note and the text chat is untouched; permission denied,
   no microphone, network or engine errors -> a short note, text chat still works; speech failure

@@ -1,4 +1,4 @@
-import { pickVoice, VOICE_LANGUAGE } from './speech.ts'
+import { createSpeechOutput, type SynthLike, type UtteranceLike } from './speechOutput.ts'
 import type { RecognitionLike, SpeechOutput } from './voiceController.ts'
 
 // Browser glue for the Web Speech API. Recognition uses whatever service the browser
@@ -18,34 +18,10 @@ export function createBrowserSpeechOutput(): SpeechOutput | null {
   if (typeof window === 'undefined' || !('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
     return null
   }
-  const synth = window.speechSynthesis
-
-  return {
-    speak(chunks, onDone, onError) {
-      synth.cancel()
-      // Voices load lazily and differ per device; the utterance language is a fallback
-      // when none has loaded yet.
-      const voice = pickVoice(synth.getVoices())
-      let failed = false
-      chunks.forEach((chunk, index) => {
-        const utterance = new SpeechSynthesisUtterance(chunk)
-        utterance.lang = VOICE_LANGUAGE
-        if (voice) utterance.voice = voice
-        utterance.rate = 1
-        utterance.pitch = 1
-        utterance.onerror = (event) => {
-          // Cancelling (Stop, barge-in) is expected, not a failure.
-          if (failed || event.error === 'canceled' || event.error === 'interrupted') return
-          failed = true
-          synth.cancel()
-          onError()
-        }
-        if (index === chunks.length - 1) utterance.onend = () => !failed && onDone()
-        synth.speak(utterance)
-      })
-    },
-    cancel() {
-      synth.cancel()
-    },
-  }
+  return createSpeechOutput({
+    synth: window.speechSynthesis as unknown as SynthLike,
+    createUtterance: (text) => new SpeechSynthesisUtterance(text) as unknown as UtteranceLike,
+    setTimeout: (callback, ms) => window.setTimeout(callback, ms),
+    clearTimeout: (id) => window.clearTimeout(id as number),
+  })
 }

@@ -40,6 +40,10 @@ export interface RecognitionEventLike {
 }
 
 export interface SpeechOutput {
+  // Starts the speech engine. Called synchronously from the user's tap (mobile browsers only
+  // allow speech tied to a gesture); returns a short visible notice if it had to speak one.
+  prime(): string | null
+  // onError means the reply was NOT spoken (engine error, or it never started).
   speak(chunks: string[], onDone: () => void, onError: () => void): void
   cancel(): void
 }
@@ -63,7 +67,7 @@ export const VOICE_MESSAGES = {
   network: 'Voice recognition is unavailable right now (it needs an internet connection). You can still type.',
   failed: 'Voice input failed. You can still type or try again.',
   nothingHeard: "I didn't catch that. Tap the microphone to try again.",
-  speechFailed: "Couldn't play the spoken reply. The answer is shown above; tap the microphone to try again.",
+  playbackUnavailable: 'Voice playback is unavailable on this device. Text chat still works.',
 } as const
 
 export function createVoiceController(deps: VoiceDeps) {
@@ -197,9 +201,16 @@ export function createVoiceController(deps: VoiceDeps) {
       if (!deps.createRecognition || state === 'processing') return
       release()
       deps.speech?.cancel()
+      // Still inside the user's tap: prime speech before recognition, any request or callback.
+      let notice: string | null = null
+      try {
+        notice = deps.speech?.prime() ?? null
+      } catch {
+        // priming is best effort; the reply is still attempted and verified later
+      }
       sessionActive = true
       awaitingReply = false
-      set('requesting_permission')
+      set('requesting_permission', notice)
       listen()
     },
 
@@ -234,12 +245,12 @@ export function createVoiceController(deps: VoiceDeps) {
           },
           () => {
             if (id !== epoch) return
-            endSession('error', VOICE_MESSAGES.speechFailed)
+            endSession('error', VOICE_MESSAGES.playbackUnavailable)
           },
         )
       } catch {
         // A speech engine that throws must never take the chat down; the text answer stays visible.
-        endSession('error', VOICE_MESSAGES.speechFailed)
+        endSession('error', VOICE_MESSAGES.playbackUnavailable)
       }
     },
 
