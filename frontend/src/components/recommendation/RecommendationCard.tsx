@@ -65,12 +65,29 @@ export function RecommendationCard({ result }: { result: RecommendationResult })
         </p>
       )}
 
-      <p className="mt-3 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
-        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        <span className="min-w-0 break-words">
-          Technical recommendation. {view.costNote}
-        </span>
-      </p>
+      {view.financials && (
+        <dl className="mt-3 grid gap-3 rounded-xl border border-emerald-100 bg-white p-3 sm:grid-cols-2">
+          {[
+            ['Estimated cost', view.financials.installedCost],
+            ['Estimated net investment', view.financials.netInvestment],
+            ['Estimated annual savings', view.financials.annualSavings],
+            ['Estimated monthly savings', view.financials.monthlySavings],
+            ['Estimated simple payback', view.financials.payback],
+          ].map(([label, value]) => (
+            <div key={label} className="min-w-0">
+              <dt className="text-xs uppercase tracking-wide text-slate-400">{label}</dt>
+              <dd className="mt-0.5 break-words text-sm font-semibold text-slate-900">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+
+      {view.costMessage && (
+        <p className="mt-3 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 break-words">{view.costMessage}</span>
+        </p>
+      )}
 
       <details className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs">
         <summary className="cursor-pointer font-medium text-slate-600">View details</summary>

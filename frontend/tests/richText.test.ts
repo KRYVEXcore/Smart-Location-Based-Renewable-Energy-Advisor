@@ -122,7 +122,7 @@ describe('recommendation card content', () => {
     assert.equal(view.feasibilityLabel, 'Technically feasible')
     assert.equal(view.targetNote, null)
     assert.deepEqual(view.incentiveLines, ['PM Surya Ghar: ₹78,000'])
-    assert.ok(view.costNote.includes('not currently available'))
+    assert.ok(view.costMessage?.includes('not currently available'))
   })
 
   it('says when the target is not fully reached', () => {

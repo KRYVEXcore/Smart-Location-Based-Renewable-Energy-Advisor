@@ -338,6 +338,32 @@ def test_tariff_context_carries_the_existing_tariff_result():
     assert result.tariff_context.estimated_monthly_bill_inr == "1234.00"
 
 
+def test_cost_message_states_keep_the_recommendation_and_never_invent_affordability():
+    with_budget, _ = run(budget=300000)
+    without_budget, _ = run()
+
+    for result in (with_budget, without_budget):
+        assert result.recommendation_status == "recommended" and result.recommended_capacity_kw == 3
+        assert result.cost_context.status == "not_available"
+        assert result.cost_context.installed_cost_range_inr is None and result.cost_context.simple_payback_years is None
+    assert with_budget.cost_context.note == (
+        "A budget was provided, but verified system cost data is not available, so affordability cannot yet be calculated."
+    )
+    assert without_budget.cost_context.note == "Verified system cost data is not currently available."
+    assert "budget" not in without_budget.cost_context.note
+
+
+def test_a_verified_cost_analysis_can_be_represented_without_the_engine_producing_one():
+    from app.schemas.recommendation import CostContext, InrRange
+
+    available = CostContext(
+        status="available", note="", installed_cost_range_inr=InrRange(low=1, high=2), simple_payback_years=1.4
+    )
+
+    assert available.model_dump(mode="json")["status"] == "available"
+    assert available.simple_payback_years == 1.4
+
+
 def test_no_cost_savings_or_payback_is_ever_produced():
     without_budget, _ = run()
     with_budget, _ = run(budget=300000)

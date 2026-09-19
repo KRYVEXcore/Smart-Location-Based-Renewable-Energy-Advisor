@@ -18,7 +18,7 @@ RULES = [
     "7. Cost, savings and payback are never produced: no verified cost data exists.",
 ]
 
-COST_UNAVAILABLE_NOTE = "Verified system cost is not currently available, so savings and payback are not calculated."
+COST_UNAVAILABLE_NOTE = "Verified system cost data is not currently available."
 BUDGET_UNAVAILABLE_NOTE = (
     "A budget was provided, but verified system cost data is not available, so affordability cannot yet be calculated."
 )

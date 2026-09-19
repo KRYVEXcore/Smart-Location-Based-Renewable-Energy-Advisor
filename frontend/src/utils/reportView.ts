@@ -62,6 +62,25 @@ export function energyView(energy: AssessmentResponse['energy']): EnergyView {
   }
 }
 
+type CostContext = RecommendationResult['cost_context']
+
+const range = (value: { low: number; high: number } | null | undefined) =>
+  value ? `${inr(value.low)} – ${inr(value.high)}` : NOT_AVAILABLE
+const amount = (value: number | null | undefined, suffix = '') => (value == null ? NOT_AVAILABLE : `${inr(value)}${suffix}`)
+
+// Real financial values, only when a verified analysis exists. A single missing value reads "Not available".
+export function financialLabels(cost: CostContext) {
+  const available = cost.status === 'available'
+  return {
+    installedCost: available ? range(cost.installed_cost_range_inr) : NOT_AVAILABLE,
+    netInvestment: available ? range(cost.net_investment_range_inr) : NOT_AVAILABLE,
+    annualSavings: available ? amount(cost.annual_savings_inr, '/year') : NOT_AVAILABLE,
+    monthlySavings: available ? amount(cost.monthly_savings_inr, '/month') : NOT_AVAILABLE,
+    payback:
+      available && cost.simple_payback_years != null ? `${cost.simple_payback_years.toFixed(1)} years` : NOT_AVAILABLE,
+  }
+}
+
 export interface CostSavingsView {
   installedCost: string
   incentiveLines: string[]
@@ -81,16 +100,18 @@ export function costSavingsView(recommendation: RecommendationResult | null): Co
       ? `${incentive.scheme_name}: ${inr(Number(incentive.incentive_amount_inr))}`
       : incentive.scheme_name,
   )
+  const labels = recommendation ? financialLabels(recommendation.cost_context) : null
   return {
-    installedCost: NOT_AVAILABLE,
+    installedCost: labels?.installedCost ?? NOT_AVAILABLE,
     incentiveLines,
-    netInvestment: NOT_AVAILABLE,
-    annualSavings: NOT_AVAILABLE,
-    monthlySavings: NOT_AVAILABLE,
-    payback: NOT_AVAILABLE,
+    netInvestment: labels?.netInvestment ?? NOT_AVAILABLE,
+    annualSavings: labels?.annualSavings ?? NOT_AVAILABLE,
+    monthlySavings: labels?.monthlySavings ?? NOT_AVAILABLE,
+    payback: labels?.payback ?? NOT_AVAILABLE,
     basisNote:
-      recommendation?.cost_context.note ??
-      'Verified system cost is not currently available, so savings and payback are not calculated.',
+      recommendation?.cost_context.status === 'available'
+        ? 'Based on verified India-based cost and incentive data.'
+        : (recommendation?.cost_context.note ?? 'Verified system cost data is not currently available.'),
     financingNote: 'Financing options not currently calculated.',
   }
 }

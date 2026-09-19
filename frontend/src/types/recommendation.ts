@@ -54,7 +54,17 @@ export interface RecommendationResult {
   applicable_incentives: RecommendedIncentive[]
   incentive_context: { status: string; eligible_programmes: number; note: string } | null
   tariff_context: { status: string; tariff_name: string | null; estimated_monthly_bill_inr: string | null } | null
-  cost_context: { status: 'not_available'; budget_inr: number | null; note: string }
+  // status 'available' only when a verified financial analysis exists; otherwise the note explains why not.
+  cost_context: {
+    status: 'not_available' | 'available'
+    budget_inr: number | null
+    note: string
+    installed_cost_range_inr?: { low: number; high: number } | null
+    net_investment_range_inr?: { low: number; high: number } | null
+    annual_savings_inr?: number | null
+    monthly_savings_inr?: number | null
+    simple_payback_years?: number | null
+  }
   limitations: string[]
   rules: string[]
   recommendation_version: string

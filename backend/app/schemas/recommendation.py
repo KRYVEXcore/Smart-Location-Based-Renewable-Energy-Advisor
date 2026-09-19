@@ -68,12 +68,26 @@ class TariffContext(BaseModel):
     is_partial_estimate: bool | None = None
 
 
-class CostContext(BaseModel):
-    """There is no verified cost data, so cost, savings and payback are never produced."""
+class InrRange(BaseModel):
+    low: float
+    high: float
 
-    status: Literal["not_available"] = "not_available"
+
+class CostContext(BaseModel):
+    """Verified cost-data status. Until a financial analysis with verified cost data exists the
+    status is "not_available" and no cost, savings, payback or affordability is produced (the
+    recommendation itself is still valid). Only a verified analysis may set "available" and fill
+    the values below; they are never estimated here.
+    """
+
+    status: Literal["not_available", "available"] = "not_available"
     budget_inr: float | None = None
     note: str
+    installed_cost_range_inr: InrRange | None = None
+    net_investment_range_inr: InrRange | None = None
+    annual_savings_inr: float | None = None
+    monthly_savings_inr: float | None = None
+    simple_payback_years: float | None = None
 
 
 class RecommendationResult(BaseModel):

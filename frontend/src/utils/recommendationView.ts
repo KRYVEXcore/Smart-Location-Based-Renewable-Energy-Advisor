@@ -1,4 +1,5 @@
 import type { RecommendationResult, SolarDecision } from '../types/recommendation.ts'
+import { financialLabels } from './reportView.ts'
 
 // Display labels for a backend recommendation. Pure and DOM-free so it can be tested.
 // Every number shown here is copied from the backend result; nothing is calculated.
@@ -26,7 +27,10 @@ export interface RecommendationView {
   targetNote: string | null
   reason: string
   incentiveLines: string[]
-  costNote: string
+  // The compact yellow (non-error) note shown while verified cost data is unavailable; null once it is available.
+  costMessage: string | null
+  // Real verified figures, only when cost data is available.
+  financials: ReturnType<typeof financialLabels> | null
 }
 
 export function recommendationView(result: RecommendationResult): RecommendationView {
@@ -58,6 +62,7 @@ export function recommendationView(result: RecommendationResult): Recommendation
         : null,
     reason: result.recommendation_reason,
     incentiveLines,
-    costNote: result.cost_context.note,
+    costMessage: result.cost_context.status === 'available' ? null : `Technical recommendation. ${result.cost_context.note}`,
+    financials: result.cost_context.status === 'available' ? financialLabels(result.cost_context) : null,
   }
 }

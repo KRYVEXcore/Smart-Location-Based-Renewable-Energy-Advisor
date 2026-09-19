@@ -164,7 +164,15 @@ def test_budget_never_becomes_an_affordability_or_cost_figure(client, valid_payl
     assert "affordability cannot yet be calculated" in body["cost_context"]["note"]
     assert any("battery sizing is not currently calculated" in limit for limit in body["limitations"])
     # No cost, savings or payback value exists as a field; the budget is only echoed back.
-    assert set(body["cost_context"]) == {"status", "budget_inr", "note"}
+    cost = body["cost_context"]
+    assert cost["status"] == "not_available"
+    assert {k: v for k, v in cost.items() if k not in ("status", "budget_inr", "note")} == {
+        "installed_cost_range_inr": None,
+        "net_investment_range_inr": None,
+        "annual_savings_inr": None,
+        "monthly_savings_inr": None,
+        "simple_payback_years": None,
+    }
     assert not {"savings", "payback", "roi", "installation_cost"} & set(body)
 
 
