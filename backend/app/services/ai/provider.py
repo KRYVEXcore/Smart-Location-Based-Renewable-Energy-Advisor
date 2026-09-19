@@ -40,7 +40,7 @@ _THINK_BLOCK = re.compile(r"<think>.*?</think>", re.DOTALL)
 class NvidiaNimProvider(ChatProvider):
     """NVIDIA NIM's OpenAI-compatible chat-completions API."""
 
-    name = "nvidia_nim"
+    name = "nvidia"
 
     def __init__(
         self,
@@ -96,7 +96,7 @@ class NvidiaNimProvider(ChatProvider):
 
 def build_provider(settings: Settings) -> ChatProvider | None:
     """None means "not configured": no key, or a provider this build has no adapter for."""
-    if settings.ai_provider != "nvidia_nim" or not settings.nvidia_api_key:
+    if settings.ai_provider != "nvidia" or not settings.nvidia_api_key:
         return None
     return NvidiaNimProvider(
         api_key=settings.nvidia_api_key,

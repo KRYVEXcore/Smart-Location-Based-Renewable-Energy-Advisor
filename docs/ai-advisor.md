@@ -39,7 +39,7 @@ subclass and one branch in `build_provider()`.
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `NVIDIA_API_KEY` | unset | API key. **Backend/Render only.** Never in the frontend, GitHub Pages variables or Git |
-| `AI_PROVIDER` | `nvidia_nim` | Only adapter available |
+| `AI_PROVIDER` | `nvidia` | NVIDIA NIM; the only adapter available |
 | `AI_MODEL` | `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` | A small (30B total, ~3B active) Nemotron that answered on the hosted API with the key used for verification. `nvidia/nemotron-nano-3-30b-a3b` appears in the public model list but returned 404 "Not found for account", so a model being listed does not mean it is invocable; the reasoning text it returns separately is ignored |
 | `AI_BASE_URL` | `https://integrate.api.nvidia.com/v1` | NIM endpoint |
 | `AI_TIMEOUT_SECONDS` | 30 | Provider timeout |

@@ -422,6 +422,69 @@ def test_system_prompt_states_the_authority_and_boundary_rules():
         assert rule in SYSTEM_PROMPT.lower()
 
 
+@pytest.mark.parametrize(
+    "derived_figure, wording",
+    [
+        ("effective tariff", "rupees per kwh or any effective or average tariff"),
+        ("payback", "payback or break-even time"),
+        ("savings", "annual savings or bill reduction"),
+        ("capacity from consumption or roof", "a system size worked out from consumption or roof area"),
+        ("daily/monthly generation", "daily or monthly generation worked out from annual generation"),
+        ("wind speed from generation", "a wind speed worked out from generation"),
+        ("subsidy from cost", "a subsidy worked out from a system cost"),
+    ],
+)
+def test_system_prompt_forbids_deriving_user_specific_figures(derived_figure, wording):
+    text = " ".join(SYSTEM_PROMPT.lower().split())
+
+    assert wording in text, derived_figure
+    assert "must not divide, multiply, add, subtract, average, extrapolate, estimate or reverse-calculate" in text
+    assert "not a calculator" in text
+    assert "asked to work it out yourself" in text  # "calculate it yourself" requests are declined
+    assert "does not currently provide a verified value" in text
+
+
+def test_system_prompt_keeps_general_knowledge_separate_from_application_data():
+    text = " ".join(SYSTEM_PROMPT.lower().split())
+
+    assert "general educational questions" in text
+    assert "label them clearly as general knowledge" in text
+
+
+def test_the_worked_example_in_the_prompt_uses_placeholders_not_real_figures():
+    example = SYSTEM_PROMPT.split("Example:", 1)[1].splitlines()[0]
+
+    assert "<bill>" in example and "<consumption>" in example
+    assert not any(ch.isdigit() for ch in example)
+
+
+def test_logs_carry_no_key_message_or_context(client, valid_payload, db_session, caplog):
+    import logging
+
+    caplog.set_level(logging.DEBUG)
+    _setup(db_session, FakeChatProvider())
+    aid = _assessment(client, valid_payload)
+    message = "my private question about 950 kWh"
+
+    _chat(client, aid, message)
+
+    assert "advisor_chat provider=fake_provider" in caplog.text
+    for forbidden in (API_KEY, message, "Authorization", "APPLICATION DATA"):
+        assert forbidden not in caplog.text
+
+
+def test_adapter_logs_omit_the_key_and_headers_on_auth_failure(caplog):
+    import logging
+
+    caplog.set_level(logging.DEBUG)
+    provider = _provider(lambda request: httpx.Response(401, text=f"bad key {API_KEY}"))
+
+    with pytest.raises(AIProviderError):
+        provider.complete("system text", [{"role": "user", "content": "private"}])
+
+    assert API_KEY not in caplog.text and "Bearer" not in caplog.text and "private" not in caplog.text
+
+
 # ---- overview (no AI call) -------------------------------------------------
 
 
@@ -541,7 +604,7 @@ def test_adapter_rejects_malformed_provider_responses(handler):
 
 def test_provider_is_only_built_when_configured():
     assert build_provider(Settings(nvidia_api_key=None)) is None
-    assert build_provider(Settings(nvidia_api_key="", ai_provider="nvidia_nim")) is None
+    assert build_provider(Settings(nvidia_api_key="", ai_provider="nvidia")) is None
     assert build_provider(Settings(nvidia_api_key="k", ai_provider="some_other_provider")) is None
     built = build_provider(Settings(nvidia_api_key="k", ai_model="nvidia/x"))
-    assert built is not None and built.name == "nvidia_nim" and built.model == "nvidia/x"
+    assert built is not None and built.name == "nvidia" and built.model == "nvidia/x"
