@@ -1,4 +1,5 @@
 import { Zap } from 'lucide-react'
+import kryvexcoreWordmark from '../../assets/kryvexcore-wordmark.png'
 import { useBackendStatus } from '../../hooks/useBackendStatus'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -30,6 +31,16 @@ export function Footer() {
         >
           {STATUS_LABELS[status]}
         </span>
+      </div>
+      {/* pb-20 keeps the logo above the fixed "Ask SHREA AI" button, which covers the page's bottom-right corner. */}
+      <div className="flex w-full justify-end px-6 pb-20 sm:px-8">
+        <img
+          src={kryvexcoreWordmark}
+          alt="KRYVEXCORE"
+          width={440}
+          height={52}
+          className="h-auto w-24 sm:w-28"
+        />
       </div>
     </footer>
   )
