@@ -1,300 +1,392 @@
-# Smart Location-Based Renewable Energy Advisor
+# SHREA — Smart Location-Based Renewable Energy Advisor
 
-**An India-based decision-support platform** that helps individuals and
-small institutions evaluate renewable energy options — Solar PV, Small
-Wind, Solar+Wind Hybrid, Battery Storage, and combinations of these — using
-India-based resources and data for their own location, building, energy
-needs, and budget.
+**An India-specific decision-support platform that turns a location and an average monthly electricity bill into a verified, explainable renewable-energy recommendation.** The user-facing brand is **SHREA AI**; the repository keeps its descriptive name.
 
-## Project Purpose
+> **Deterministic engines calculate. AI explains.**
 
-Choosing a renewable energy system is hard to do well without site-specific
-data: local solar and wind resource, roof or land area, consumption
-patterns, installation cost, and available incentives all matter — and in
-India, all of these are genuinely local: solar/wind resource varies by
-region, electricity tariffs are set per state/UT and per DISCOM, and
-incentive schemes exist at the central, state/UT, and DISCOM level, each
-with its own eligibility rules. This platform's goal is to turn
-India-based location and resource data into a clear, explainable
-recommendation — sized and costed by deterministic engineering calculations,
-never guessed by an AI model, and never a single nationwide number applied
-everywhere.
+Built for the **Smart India Hackathon (SIH) 2026**.
+
+| | |
+| --- | --- |
+| **Live app** | <https://kryvexcore.github.io/Smart-Location-Based-Renewable-Energy-Advisor/> (GitHub Pages) |
+| **Live API** | <https://renewable-energy-advisor-api.onrender.com> (Render) — health check: `/api/v1/health` |
+| **Documentation** | [`docs/`](docs/) — see [Documentation](#documentation) |
+| **License** | GNU AGPL v3 — see [`LICENSE`](LICENSE) |
+
+> The API runs on Render's free plan and sleeps when idle, so the first request after a pause can be slow.
+
+## Contents
+
+[Purpose](#purpose) · [Key Features](#key-features) · [Architecture](#architecture) · [How a Result Is Produced](#how-a-result-is-produced) · [Engines](#engines) · [SHREA AI Advisor](#shrea-ai-advisor) · [Voice](#voice) · [Financial Analysis](#financial-analysis) · [Data Coverage & Provenance](#data-coverage--provenance) · [Technology Stack](#technology-stack) · [Current Status](#current-status) · [Known Limitations](#known-limitations) · [Planned Work](#planned-work-not-implemented) · [Repository Structure](#repository-structure) · [Getting Started](#getting-started) · [Deployment](#deployment) · [Database Models](#database-models) · [API Endpoints](#api-endpoints) · [Engine & Data Reference](#location-intelligence-phase-3) · [Security](#security) · [Documentation](#documentation)
+
+---
+
+## Purpose
+
+Choosing a renewable-energy system is hard to do well without site-specific data. In India almost everything that matters is local: solar and wind resource vary by region, electricity tariffs are set per state/UT and per DISCOM, and incentive schemes exist at the central, state/UT and DISCOM level, each with its own eligibility rules. Most customers also know what they *pay* (their monthly bill), not what they *use* (kWh).
+
+SHREA turns India-based location and resource data into a clear, explainable recommendation that is **sized and costed by deterministic calculations and verified, dated, sourced data — never guessed by an AI model**, and never a single nationwide number applied everywhere.
+
+### SIH purpose
+
+SHREA was built for the Smart India Hackathon 2026 as a working, auditable prototype that shows:
+
+- **A customer-friendly input** — location, building type and average monthly *bill*, with optional units.
+- **India-specific accuracy** — state/UT → DISCOM → the tariff, incentives and renewable resource that apply there.
+- **Explainability** — every recommendation carries its reason, rules, limitations and data sources.
+- **A safe use of AI** — the AI receives validated results from the backend and explains them. It does not invent capacity, tariff, incentive, cost, savings or payback.
+- **Safe failure** — missing data becomes a status and a reason ("Not available"), never a guess and never a fake zero.
+- **Access for everyone** — a browser and internet only, by text or voice.
+
+## Key Features
+
+- **Bill-first assessment** — a five-step wizard (Location → Building type → Electricity bill → Constraints → Review). The kWh the engines need is *estimated from the bill* with the verified tariff, or entered directly.
+- **Location intelligence** — place search and map, reverse geocoding, resolution to state/UT, district/city and DISCOM, plus solar, wind, weather and elevation data.
+- **Deterministic engines** — solar generation and feasibility (1–10 kW), small-wind screening (0.5–10 kW), electricity tariff bill, incentive eligibility, recommendation, and financial analysis.
+- **Recommendation** — the smallest technically feasible solar size that reaches the annual-coverage target, with reasons and the options that were excluded.
+- **Estimated financials** — cost (official MNRE benchmark), verified incentive, net investment, savings and simple payback, labelled as estimates.
+- **Verified data with provenance** — tariffs, incentives and cost data carry source, page, version and effective dates, shown in the dashboard.
+- **SHREA AI chat** — questions about one assessment, answered from the backend's results (NVIDIA NIM).
+- **Voice** — optional browser microphone and spoken replies on top of the same chat.
+- **Responsive UI** — React app for desktop and mobile.
 
 ## Architecture
 
 ```
-USER
- |
- v
-FRONTEND (React + TypeScript)
- |
- v
-BACKEND API (FastAPI)
- |
- +--> DETERMINISTIC CALCULATION ENGINES (solar, wind, hybrid, financial, recommendation)
- |
- +--> DATABASE (PostgreSQL via SQLAlchemy)
- |
- +--> AI ADVISOR (SHREA AI, Phase 8) --> engine results as context --> explanation
- |
- +--> VOICE ADVISOR (future) --> speech-to-text --> AI Advisor --> text-to-speech
+CUSTOMER (any browser)
+   │  HTTPS
+   ▼
+FRONTEND   React + TypeScript + Vite ................ GitHub Pages
+   │  REST / JSON
+   ▼
+BACKEND    FastAPI ................................... Render (Docker)
+   ├─ Services    assessment · location intelligence · bill estimation
+   │              recommendation · financial analysis · advisor context
+   ├─ Engines     solar · wind · tariff · incentive · recommendation · financial   (pure calculation)
+   ├─ PostgreSQL  assessments · verified DISCOMs / tariffs / incentives · snapshots (SQLAlchemy + Alembic)
+   ├─ Data        Nominatim · NASA POWER · Open-Elevation   (called by the location service only)
+   └─ SHREA AI    NVIDIA NIM — receives engine results, explains them
 ```
 
-A core architectural principle carries through every future phase: the AI
-and voice layers convert conversation into **structured requests** and
-explain **validated results** — they never invent system sizes, costs,
-savings, or subsidies themselves. All such numbers come from the
-deterministic engines in `backend/app/engines/`.
+| Layer | What it contains |
+| --- | --- |
+| 1. Customer / presentation | React app: assessment wizard, dashboard/report, recommendation card, advisor chat, browser voice |
+| 2. API / application | FastAPI REST API under `/api/v1`, Pydantic validation, thin routes and orchestrating services |
+| 3. Deterministic engines | Pure-Python calculation in `backend/app/engines/` — no database, no HTTP, no AI |
+| 4. AI / conversational | SHREA AI advisor: context builder, prompt rules, NVIDIA NIM adapter, reply validation, rate limits |
+| 5. Data | PostgreSQL: assessment inputs, verified reference data (DISCOM, tariff, incentive), calculation snapshots |
+| 6. External data | Nominatim, NASA POWER, Open-Elevation (keyless); NVIDIA NIM is the AI provider, not a data source |
+
+**Architecture principles**
+
+1. **Engines calculate, AI explains.** The model never sees the database, never calls a provider and has no tools. It receives a context built by the backend from the engines' outputs.
+2. **Engines are pure.** They import no FastAPI, SQLAlchemy or HTTP client. Services fetch data and hand the engines plain values, so the same inputs always give the same output.
+3. **Engines never call a data provider.** The location service fetches and normalises resource data first.
+4. **Time-sensitive data is versioned.** Tariffs, incentives and cost data have effective dates and sources; the version valid on the calculation date is chosen deterministically.
+5. **No layer invents another layer's value.** Missing data is reported with a status and reason.
+
+## How a Result Is Produced
+
+1. The customer enters **location, building type, monthly bill, roof area and constraints** (optionally units). The assessment is saved in PostgreSQL.
+2. The location is resolved to **state/UT → district/city → DISCOM** (a DISCOM is never guessed) and the solar and wind resource is retrieved.
+3. **Bill → kWh:** the existing Tariff Engine is evaluated at candidate consumptions until the modelled bill matches the entered bill (bounded bisection). This is *not* "bill ÷ a rate", and the result is labelled an estimate, not a meter reading. With no verified tariff, consumption stays unknown and the reason is recorded.
+4. The **Solar** and **Wind** engines produce technical options; the **Tariff Engine** produces the baseline bill.
+5. The **Recommendation Engine** picks a technology and size; the **Incentive Engine** is asked for that exact system.
+6. The **Financial Analysis Engine** estimates cost, net investment, savings and payback — or reports what is unavailable.
+7. The dashboard shows the results; **SHREA AI** explains them in text or voice.
+
+Example (Chennai home, ₹7,500/month bill, 1,200 sq ft roof — a live run on 20 Sep 2026; estimates, not guarantees):
+
+| Step | Result |
+| --- | --- |
+| Bill → consumption | ≈ 799.4 kWh/month (≈ 9,592.8 kWh/year), TNPDCL tariff |
+| Recommendation | Solar **7 kW**, ≈ 10,007.4 kWh/year, 104.3 % annual coverage (wind: insufficient resource) |
+| Cost / incentive / net | ₹3,25,000 (MNRE benchmark) − ₹78,000 (PM Surya Ghar) = ₹2,47,000 |
+| Savings / payback | ≈ ₹88,486 per year (≈ ₹7,374 per month) · simple payback ≈ 2.8 years |
+
+## Engines
+
+| Engine | Purpose | Data source | Code |
+| --- | --- | --- | --- |
+| Location intelligence | Map point → state/UT, district/city, DISCOM status, solar/wind/weather/elevation | Nominatim, NASA POWER, Open-Elevation, DISCOM registry | `services/location/` |
+| Bill / consumption estimator | Monthly bill → estimated kWh using the verified tariff | Verified tariff rows | `engines/tariff/bill_estimation.py` |
+| Solar | Annual/monthly generation and roof feasibility for 1–10 kW | NASA POWER `ALLSKY_SFC_SW_DWN` | `engines/solar/` |
+| Wind | Screening of 0.5–10 kW turbines: feasible / marginal / insufficient | NASA POWER wind climatology | `engines/wind/` |
+| Tariff | Estimated baseline grid bill (slabs, fixed charges, version by date) | `electricity_tariffs` table | `engines/tariff/` |
+| Incentive | Which verified schemes apply to a system, and the amount | `incentive_programs` table | `engines/incentive/` |
+| Recommendation | Technology and size, with reasons and excluded options | Outputs of the engines above | `engines/recommendation/` |
+| Financial analysis | Estimated cost, net investment, savings, simple payback | MNRE cost dataset + incentive + tariff + solar output | `engines/financial/` |
+
+What the engines **do not** decide: the Solar and Wind engines choose no size; the Tariff engine applies no subsidy; the Incentive engine never sums schemes; the Recommendation engine never offers hybrid or battery systems (no engine exists for them).
+
+### Recommendation rules
+
+1. Options that are technically infeasible (for example the roof is too small), or cannot be checked (roof area missing), are excluded.
+2. Wind is considered only when its screening is feasible; insufficient or marginal wind is excluded.
+3. Solar: choose the **smallest** technically feasible size whose annual coverage reaches the target (`TARGET_ANNUAL_COVERAGE_PERCENT = 100`).
+4. If none reaches it, choose the largest feasible size and say the target is not met.
+5. Solar is preferred to wind; wind is recommended only when no solar size is feasible.
+6. Hybrid and battery are never recommended.
+
+Statuses: `recommended`, `no_suitable_option`, `insufficient_data`. Nothing is guessed — an unknown roof area gives `insufficient_data`.
+
+## SHREA AI Advisor
+
+`POST /api/v1/advisor/chat` answers questions about **one assessment**. The advisor is an explanation layer.
+
+- **Provider:** NVIDIA NIM (OpenAI-compatible API) through one adapter; configured model `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`.
+- **Context:** built on the server from the assessment and the engines' results (solar, wind, tariff, incentives, recommendation, financial analysis). Street address, coordinates and credentials are excluded. A section that cannot be produced is marked unavailable, not guessed.
+- **Prompt rules:** the bill comes first; numbers in the data are authoritative and must not be recalculated; no derived figures; the recommendation is explained, never chosen; financial figures are quoted exactly and called *estimated*; no live monitoring; user messages are untrusted.
+- **Safeguards:** replies must be non-empty, are rejected if they contain the API key, have `<think>` blocks removed and are capped at 4,000 characters. Message ≤ 1,000 characters; the last 6 history turns are sent; 10 requests/minute per assessment and 30/minute overall (in-memory limiter, per process); 800 output tokens; 30 s timeout.
+- **Failure handling:** a single retry on HTTP 503 only; other provider failures return a safe status and code (`rate_limited`, `auth_failed`, `provider_error`, `invalid_response`, `timeout`, `network_error`) without provider bodies or headers. With no `NVIDIA_API_KEY` the chat reports it is not connected. The deterministic dashboard never depends on the AI.
+- **Isolation:** context is built per assessment id and access is checked against the current (prototype) user. Logs contain provider, model, assessment id, outcome and latency only.
+- **The key is backend-only** — set as `NVIDIA_API_KEY` on the server; never in the frontend, GitHub Pages variables or Git.
+
+`GET /api/v1/advisor/overview/{id}` returns the assessment summary and suggested questions **without any AI call**, as do the recommendation and financial-analysis endpoints. Details: [`docs/ai-advisor.md`](docs/ai-advisor.md).
+
+## Voice
+
+Voice is an **input/output layer in the browser** around the same advisor chat. There is no separate backend voice service.
+
+- Microphone → browser `SpeechRecognition` / `webkitSpeechRecognition` (`en-IN`) → final text → the normal chat request → reply → browser `speechSynthesis` (an English/India voice is preferred).
+- States: `idle`, `requesting_permission`, `listening`, `processing`, `speaking`, `stopped`, `unsupported`, `error`.
+- Exactly **one** advisor request per finished utterance; interim results are never sent; listening starts only when the user taps and ends on silence, error or Stop. Tapping the microphone while SHREA speaks interrupts the speech.
+- Speech problems (unsupported browser, denied permission, playback failure) never break the text chat.
+- **Privacy:** SHREA does not record, store or upload audio; it receives text only. The browser's own recognition service may process audio (in Chrome and Edge this is a cloud service). Behaviour depends on the browser and device; real-device behaviour needs manual testing.
+
+The backend's `services/voice/` contains only empty interfaces and is not used.
+
+## Financial Analysis
+
+`GET /api/v1/financial-analysis/{assessment_id}` (deterministic, never calls an AI) returns, when supported:
+
+| Output | Method |
+| --- | --- |
+| Gross cost | Official MNRE PM Surya Ghar **benchmark** for the exact recommended capacity: ₹50,000/kW for the first 2 kW and ₹45,000/kW after (special-category States/UTs ₹55,000 / ₹49,500). Residential systems only; a benchmark, not a market quote |
+| Incentive | The Incentive Engine's verified result for that system; if several apply and combining them is unverified, only the largest is used |
+| Net investment | Gross cost − incentive, never below zero; a range stays a range |
+| Savings | Per month, the Tariff Engine bill for the consumption minus the bill after the solar offset (capped at what is used); surplus/export is **not** valued; not "bill ÷ kWh" |
+| Simple payback | Net investment ÷ annual savings, only when both exist and savings are above zero |
+
+Statuses: `complete`, `cost_unavailable`, `savings_unavailable`, `insufficient_data`, `not_applicable`. A value that cannot be supported is `null` and shown as **"Not available"** — never zero.
+
+All figures are **estimates, not guarantees**. Excluded: export/net-metering income, financing/EMI, tariff escalation, maintenance savings, tax benefits, panel degradation, government bill subsidies, demand and time-of-day charges. The recommendation's `cost_context` is filled from the same result. Details: [`docs/financial-analysis.md`](docs/financial-analysis.md).
+
+## Data Coverage & Provenance
+
+Standing rule: **real data > no data > fake data.** A value is only loaded once it was read from a primary official document, with the page/table recorded. Where SHREA has no verified data, it says so.
+
+| Data | Verified and loaded |
+| --- | --- |
+| Residential electricity tariffs | Tamil Nadu (TNPDCL), Andhra Pradesh, Karnataka, Maharashtra (MSEDCL), Rajasthan. Maharashtra locations resolve as DISCOM-*ambiguous* (several licensees), so no tariff is guessed. Every other State/UT reports `tariff_not_configured`. Kerala was verified but is not loaded (its billing cannot be represented by the engine) |
+| DISCOM registry | TNPDCL, MSEDCL, BEST, AEML-D, TPC-D |
+| Incentives | Central **PM Surya Ghar** CFA — standard and special-category rows, residential only. No state or DISCOM scheme is verified |
+| Installed cost | MNRE PM Surya Ghar benchmark (guideline p. 8, clause g) — residential only |
+| Non-residential tariffs | Not verified |
+
+Every tariff and incentive row carries `source_name`, `source_url`, `source_document`, `source_order_number/date`, `source_page`, `source_table`, `source_section`, `source_excerpt`, `verification_status`, `verification_notes`, `last_verified`, `effective_from`/`effective_to`. The cost dataset records the same kind of provenance, plus scope, inclusions, exclusions and GST treatment ("not stated" where the source does not say). Research log and coverage: [`docs/data-verification/`](docs/data-verification/).
+
+Data is loaded from JSON files in `backend/app/data/` by `python -m scripts.seed_all` (validates first; idempotent; never deletes).
 
 ## Technology Stack
 
-**Frontend:** React, TypeScript, Vite, Tailwind CSS
+| Area | Technologies |
+| --- | --- |
+| Frontend | React 19, TypeScript, Vite 8, Tailwind CSS 4, React Router 7, Leaflet / react-leaflet (OpenStreetMap tiles), Lucide icons, browser Web Speech APIs |
+| Backend | Python (Docker image: 3.12), FastAPI, Uvicorn, Pydantic v2 + pydantic-settings, SQLAlchemy 2, Alembic, psycopg2, httpx |
+| Database | PostgreSQL (Render managed database in production; `postgres:16-alpine` in Docker Compose) |
+| AI | NVIDIA NIM (OpenAI-compatible API), model `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` |
+| Data sources | NASA POWER, Nominatim (OpenStreetMap), Open-Elevation, OpenStreetMap tiles; official tariff orders and MNRE guidelines as verified JSON |
+| Deployment | GitHub Pages (GitHub Actions), Render (Docker web service + PostgreSQL), Docker Compose and a devcontainer for local development |
+| Testing / tooling | pytest (in-memory SQLite), Node's built-in test runner, oxlint, `tsc` |
 
-**Backend:** Python, FastAPI, Pydantic, SQLAlchemy, PostgreSQL
+## Current Status
 
-**Development:** Git, Docker Compose
+Status as of 20 September 2026.
 
-**Future AI/ML:** interfaces only in this phase — no LLM, speech-to-text, or
-text-to-speech provider is integrated yet.
+| Area | Status |
+| --- | --- |
+| Foundation, assessment + PostgreSQL persistence (Phases 1–2) | Done, deployed |
+| Location intelligence and India resolution (Phase 3) | Done, deployed |
+| Solar, Tariff and Incentive engines (Phases 4–6) with verified data (Phase 6.7) | Done, deployed |
+| Wind screening engine (Phase 7) | Done, deployed |
+| SHREA AI advisor (Phase 8) | Done, deployed |
+| Voice (Phase 9) | Done, deployed (browser) |
+| Recommendation Engine (Phase 10) and bill-first input (Phase 10.5) | Done, deployed |
+| Financial Analysis Engine (Phase 11) | Deployed; API and advisor answers verified against the live system. **Pending:** visual check of the financial section of the dashboard on GitHub Pages |
+| Monitoring page | UI only — no device or telemetry integration |
+| Hybrid + battery, bill intelligence, ML prediction, reports, real authentication | **Planned** — not implemented |
+
+Test suites at the last full run: **717** backend tests (`pytest`) and **87** frontend tests (`npm test`); `tsc`, lint and production build are clean.
+
+## Known Limitations
+
+- **Tariff coverage:** verified residential tariffs for five states only; non-residential categories and other states/UTs are unverified. Where absent, SHREA says so.
+- **Incentives:** only the central PM Surya Ghar scheme is verified; no state or DISCOM scheme is loaded.
+- **Wind** is a screening from regional climatology (10 m speed, generic reference turbine), not a site measurement or a structural assessment.
+- **Cost** is an MNRE benchmark, not a market quotation; the guideline does not state inclusions or GST treatment; it is residential-only, and its per-kW rates are applied beyond the 3 kW subsidy cap.
+- **Savings and payback** are estimates: export/net-metering income, financing, escalation, degradation and government bill subsidies are not modelled; consumption is treated as the same every month.
+- **Bill → kWh** ignores taxes, duty, surcharges, demand and time-of-day charges, per-kW fixed charges, and bill subsidies.
+- **No user authentication.** Every request is a single prototype user; an assessment is reached by its unguessable id, and the assessment-list endpoint is unauthenticated.
+- **AI** replies depend on NVIDIA's availability; the advisor rate limiter is per process (fits one Render instance).
+- **Voice** depends on the browser and device.
+- Recommendation and financial results are recomputed on every request (only inputs and engine snapshots are stored).
+- Render's free plan sleeps when idle and its free database has a time limit.
+
+## Planned Work (not implemented)
+
+Hybrid solar + wind and battery sizing (`engines/hybrid` is a placeholder) · financing/EMI and export compensation · electricity-bill intelligence · ML prediction (`app/ml` is a placeholder) · downloadable reports · device monitoring and live telemetry · real authentication · more verified states, categories and state/DISCOM incentives · server-side speech services (empty interfaces exist).
+
+---
 
 ## Repository Structure
 
 ```
 renewable-energy-advisor/
-├── frontend/                    React + TypeScript + Vite + Tailwind + React Router
+├── frontend/                      React + TypeScript + Vite + Tailwind + React Router
 │   ├── src/
-│   │   ├── components/
-│   │   │   ├── navigation/         Navbar (desktop + mobile menu)
-│   │   │   ├── buttons/             Reusable Button (link/anchor/button variants)
-│   │   │   ├── cards/                SelectableCard, TechnologyCard, ComparisonCard
-│   │   │   ├── metrics/               MetricCard (value + empty/pending states)
-│   │   │   ├── assessment/             Multi-step assessment form pieces
-│   │   │   ├── location/                Map, search dropdown, resource cards (Phase 3)
-│   │   │   ├── solar/                     SolarOptionCard, SolarAnalysisSection (Phase 4)
-│   │   │   ├── advisor/                   AI advisor UI shell (panel, floating button)
-│   │   │   ├── visualizations/             Hero illustration
-│   │   │   └── layout/                      Section, Footer
-│   │   ├── pages/                Home, Assessment, Dashboard, Location, Advisor
-│   │   ├── layouts/              Page shell (MainLayout: nav + advisor panel)
-│   │   ├── services/              API client and typed service calls
-│   │   ├── hooks/                 Reusable React hooks
-│   │   ├── types/                  Shared TypeScript types
-│   │   ├── utils/                   Small helpers
-│   │   └── assets/
+│   │   ├── pages/                   Home, Assessment, Dashboard, Location, Monitoring, Advisor
+│   │   ├── components/              assessment/ recommendation/ solar/ wind/ tariff/ incentive/
+│   │   │                              location/ advisor/ monitoring/ common/ cards/ metrics/
+│   │   │                              navigation/ buttons/ layout/ (Footer) visualizations/
+│   │   ├── hooks/                   One hook per API call, plus voice and advisor hooks
+│   │   ├── services/                apiClient.ts and typed service calls per API group
+│   │   ├── voice/                   speech.ts, voiceController.ts, speechOutput.ts, browserSpeech.ts
+│   │   ├── utils/                   richText.ts (safe **bold**), reportView.ts, recommendationView.ts
+│   │   ├── types/  layouts/  assets/
+│   ├── tests/                     Node test runner (voice, rich text, bill-first, cost, financial)
 │   └── .env.example
 │
-├── backend/                      FastAPI application
+├── backend/                       FastAPI application
 │   ├── app/
-│   │   ├── main.py                FastAPI app instance, CORS, error handling, router wiring
-│   │   ├── api/v1/routes/         health.py, assessments.py, locations.py, solar.py,
-│   │   │                            tariffs.py, incentives.py
-│   │   ├── core/                    config.py, security.py, constants.py,
-│   │   │                              india_geography.py (static states/UTs list)
-│   │   ├── database/
-│   │   │   ├── connection.py          SQLAlchemy engine, session factory, Base
-│   │   │   └── repositories/            assessment_repository.py,
-│   │   │                                  location_resource_snapshot_repository.py,
-│   │   │                                  solar_calculation_snapshot_repository.py,
-│   │   │                                  discom_repository.py, tariff_repository.py,
-│   │   │                                  tariff_calculation_snapshot_repository.py,
-│   │   │                                  incentive_program_repository.py,
-│   │   │                                  incentive_evaluation_snapshot_repository.py
-│   │   ├── data/
-│   │   │   └── incentives/india/         Verified incentive seed data (none yet — see its README.md)
-│   │   ├── models/                   User, Building, Location, EnergyProfile,
-│   │   │                                BuildingConstraints, Assessment,
-│   │   │                                LocationResourceSnapshot, Discom,
-│   │   │                                ElectricityTariff, IncentiveProgram,
-│   │   │                                SolarCalculationSnapshot, TariffCalculationSnapshot,
-│   │   │                                IncentiveEvaluationSnapshot, enums.py
-│   │   ├── schemas/                   assessment.py, location.py, solar.py, tariff.py, incentive.py
-│   │   ├── services/
-│   │   │   ├── assessment_service.py    Assessment persistence orchestration
-│   │   │   ├── prototype_user.py         Centralized prototype-user resolution
-│   │   │   ├── solar_calculation_service.py  Assessment + LocationProfile -> Solar Engine (Phase 4)
-│   │   │   ├── solar_dependencies.py      FastAPI wiring for the above
-│   │   │   ├── tariff_calculation_service.py  Assessment + LocationProfile -> Tariff Engine (Phase 5)
-│   │   │   ├── tariff_dependencies.py     FastAPI wiring for the above
-│   │   │   ├── incentive_evaluation_service.py  Assessment + LocationProfile -> Incentive Engine (Phase 6)
-│   │   │   ├── incentive_dependencies.py  FastAPI wiring for the above
-│   │   │   ├── location/                  LocationService, cache, provider_factory,
-│   │   │   │                                dependencies.py, providers/ (Phase 3),
-│   │   │   │                                india_resolver.py (India architecture update)
-│   │   │   ├── ai/                        AIAdvisorService interface (Phase 11)
-│   │   │   └── voice/                      Speech-to-text / text-to-speech / voice advisor interfaces (Phase 12)
-│   │   ├── engines/
-│   │   │   ├── solar/                   assumptions.py, generation.py, sizing.py,
-│   │   │   │                              validation.py, solar_engine.py (Phase 4 — done)
-│   │   │   ├── tariff/                   consumer_category_mapping.py, slab_calculation.py,
-│   │   │   │                              version_selection.py, bill_calculation.py,
-│   │   │   │                              tariff_engine.py (Phase 5 — done)
-│   │   │   ├── incentive/                 eligibility.py, calculator.py, version_selection.py,
-│   │   │   │                               stacking.py, validation.py, incentive_engine.py
-│   │   │   │                               (Phase 6 — done; reuses tariff's category mapping)
-│   │   │   ├── wind/                     Phase 7
-│   │   │   ├── hybrid/                    Phase 8
-│   │   │   ├── recommendation/             Phase 9
-│   │   │   └── financial/                  Phase 10
-│   │   └── ml/                             Prediction models (Phase 14)
-│   ├── alembic/                    Database migrations (versions/, env.py)
-│   ├── scripts/                    seed_all.py (seed_discoms/tariffs/incentives), data_quality_report.py —
-│   │                                 reviewed, idempotent data loading; RUN_DATA_SEED=true runs it on start
-│   └── tests/
+│   │   ├── main.py                  App, CORS, generic error handler, router wiring
+│   │   ├── api/v1/routes/           health, assessments, locations, solar, wind, tariffs,
+│   │   │                              incentives, recommendations, financial, advisor
+│   │   ├── core/                    config.py, constants.py, india_geography.py, security.py (placeholder)
+│   │   ├── database/                connection.py, repositories/
+│   │   ├── models/                  14 SQLAlchemy models + enums.py
+│   │   ├── schemas/                 Pydantic request/response models
+│   │   ├── services/                assessment, solar, wind, tariff, incentive, consumption estimation,
+│   │   │                              recommendation (also runs financial analysis), advisor,
+│   │   │                              location/ (providers, cache, India resolver), ai/ (context, prompt,
+│   │   │                              NVIDIA provider, rate limiter), voice/ (empty interfaces)
+│   │   ├── engines/                 solar/ wind/ tariff/ incentive/ recommendation/ financial/
+│   │   │                              (hybrid/ is a placeholder)
+│   │   ├── data/                    Verified JSON: costs/ discoms/ incentives/ tariffs/ (india/)
+│   │   ├── data_validation/         Validation of the JSON data before it is loaded
+│   │   └── ml/                      Placeholder
+│   ├── alembic/                   9 migrations
+│   ├── scripts/                   seed_all.py (+ seed_discoms/tariffs/incentives), data_quality_report.py
+│   ├── tests/                     pytest suite
+│   └── Dockerfile, docker-entrypoint.sh
 │
-├── docs/                          Reserved for future architecture/API docs
-├── .devcontainer/                 GitHub Codespaces config (reuses docker-compose.yml)
+├── docs/                          ai-advisor.md, bill-first-assessment.md, financial-analysis.md,
+│                                    wind-engine.md, data-verification/
+├── .github/workflows/deploy-pages.yml   Builds and publishes the frontend to GitHub Pages
+├── render.yaml                    Render blueprint (backend web service + PostgreSQL)
+├── docker-compose.yml, .devcontainer/   Local / Codespaces development
 ├── .env.example
-├── .gitattributes                 Forces LF line endings on *.sh (Docker/Codespaces need this on Windows)
-├── .gitignore
-├── docker-compose.yml
 └── README.md
 ```
 
-## Requirements
+## Getting Started
+
+### Requirements
 
 - Node.js 20+ and npm
-- Python 3.11+ (Windows: the `python` launcher may not be configured — use `py` instead)
-- PostgreSQL 14+ (or Docker, see below)
-- Docker and Docker Compose (optional, for containerized setup)
+- Python 3.11+ (the Docker image uses 3.12). On Windows the `python` launcher may not be configured — use `py`.
+- PostgreSQL 14+ (or Docker, below)
+- Docker and Docker Compose (optional)
 
-## Installation
+### Installation
 
-Clone or open the repository, then set up the frontend and backend as
-described below. You can run each natively, or run everything through
-Docker Compose.
+Clone the repository, then set up the backend and frontend as below, or run everything with Docker Compose.
 
-## Environment Configuration
+### Environment Configuration
 
-Copy [`.env.example`](.env.example) and fill in real values for any
-non-local environment. **Never commit a real `.env` file** — it is already
-excluded in [`.gitignore`](.gitignore).
+Copy [`.env.example`](.env.example) to `backend/.env` and adjust it. **Never commit a real `.env` file** — it is excluded by [`.gitignore`](.gitignore).
 
-| Variable       | Used by  | Purpose                                             |
-| -------------- | -------- | ---------------------------------------------------- |
-| `DATABASE_URL` | backend  | SQLAlchemy PostgreSQL connection string               |
-| `API_BASE_URL` | frontend | Backend base URL (as `VITE_API_BASE_URL`, see below)   |
-| `APP_ENV`      | backend  | `development` \| `staging` \| `production`              |
-| `SECRET_KEY`   | backend  | Reserved for future authentication/session signing       |
-| `GEOCODING_PROVIDER` / `GEOCODING_API_KEY`             | backend | Default `nominatim`, keyless. Optional. |
-| `SOLAR_RESOURCE_PROVIDER` / `SOLAR_RESOURCE_API_KEY`   | backend | Default `nasa_power`, keyless. Optional. |
-| `WIND_RESOURCE_PROVIDER` / `WIND_RESOURCE_API_KEY`     | backend | Default `nasa_power`, keyless. Optional. |
-| `WEATHER_PROVIDER` / `WEATHER_API_KEY`                 | backend | Default `nasa_power`, keyless. Optional. |
-| `ELEVATION_PROVIDER` / `ELEVATION_API_KEY`             | backend | Default `open_elevation`, keyless. Optional. |
+| Variable | Used by | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | backend | SQLAlchemy PostgreSQL connection string |
+| `APP_ENV` | backend | `development` \| `staging` \| `production` |
+| `SECRET_KEY` | backend | Reserved for future authentication/session signing |
+| `CORS_ALLOWED_ORIGINS` | backend | Comma-separated allowed browser origins (default `http://localhost:5173`; production: the GitHub Pages origin) |
+| `RUN_DATA_SEED` | backend (container) | `true` loads the verified data on container start (idempotent) |
+| `NVIDIA_API_KEY` | backend | SHREA AI key. **Backend only.** Empty → the advisor reports "not connected" |
+| `AI_PROVIDER` / `AI_MODEL` | backend | Default `nvidia` and `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` |
+| `AI_BASE_URL`, `AI_TIMEOUT_SECONDS`, `AI_MAX_OUTPUT_TOKENS`, `AI_HISTORY_LIMIT`, `AI_RATE_LIMIT_PER_MINUTE`, `AI_GLOBAL_RATE_LIMIT_PER_MINUTE` | backend | Optional AI tuning (defaults: NVIDIA endpoint, 30 s, 800 tokens, 6 turns, 10/min per assessment, 30/min overall) |
+| `GEOCODING_PROVIDER`, `SOLAR_RESOURCE_PROVIDER`, `WIND_RESOURCE_PROVIDER`, `WEATHER_PROVIDER`, `ELEVATION_PROVIDER` (+ `*_API_KEY`) | backend | Default `nominatim`, `nasa_power` (×3), `open_elevation`; all keyless and optional |
+| `LOCATION_CACHE_TTL_SECONDS`, `PROVIDER_REQUEST_TIMEOUT_SECONDS` | backend | Optional (defaults 86,400 s and 10 s) |
+| `VITE_API_BASE_URL` | frontend | Backend base URL, in `frontend/.env` (see [`frontend/.env.example`](frontend/.env.example)). In CI it comes from the `API_BASE_URL` repository variable |
 
-The frontend needs its own copy at `frontend/.env` with the `VITE_` prefix
-Vite requires — see [`frontend/.env.example`](frontend/.env.example).
+None of the provider or AI variables is required to run the app locally.
 
-None of the location-provider variables are required to run the app
-locally — see [Location Intelligence](#location-intelligence-phase-3) for
-what each provider does and how to swap one out.
+### PostgreSQL Setup
 
-## PostgreSQL Setup
-
-Install PostgreSQL locally and create a database and a dedicated role for
-the app, or use the `postgres` service in `docker-compose.yml` (recommended
-for local development):
+Use the `postgres` service in `docker-compose.yml` (recommended):
 
 ```bash
 docker compose up -d postgres
 ```
 
-This starts PostgreSQL on `localhost:5432` with the credentials in
-`docker-compose.yml` (defaults: user `postgres`, password `postgres`,
-database `renewable_energy_advisor`). Update `DATABASE_URL` in your `.env`
-to match if you change these.
-
-If you're using a PostgreSQL install you already have running instead of
-Docker, create a dedicated low-privilege role and database for this project
-rather than using the superuser account:
+It starts PostgreSQL on `localhost:5432` (defaults: user `postgres`, password `postgres`, database `renewable_energy_advisor`); update `DATABASE_URL` if you change them. With an existing PostgreSQL install, create a dedicated low-privilege role and database instead of using the superuser:
 
 ```sql
 CREATE ROLE renewable_app WITH LOGIN PASSWORD 'choose-a-password';
 CREATE DATABASE renewable_energy_advisor OWNER renewable_app;
 ```
 
-Then point `DATABASE_URL` in `backend/.env` at that role.
+### Database Migrations
 
-## Database Migrations
-
-Schema changes are managed with Alembic — the app never creates tables from
-startup code. From `backend/`, with `DATABASE_URL` set in `.env`:
+Schema changes are managed with Alembic — the app never creates tables from startup code. From `backend/`, with `DATABASE_URL` set (use the venv's Python so `app` resolves on `sys.path`):
 
 ```bash
-alembic upgrade head        # apply all migrations
-alembic downgrade -1        # roll back one migration
-alembic revision --autogenerate -m "describe the change"   # after editing models
-alembic current             # show the applied revision
+python -m alembic upgrade head        # apply all migrations
+python -m alembic downgrade -1        # roll back one migration
+python -m alembic current             # show the applied revision
+python -m alembic revision --autogenerate -m "describe the change"   # after editing models
 ```
 
-Run these with the venv's Python so `app` resolves on `sys.path`:
-
-```bash
-python -m alembic upgrade head
-```
-
-## Backend Setup
+### Backend Setup
 
 ```bash
 cd backend
-py -m venv .venv
-.venv\Scripts\activate
+py -m venv .venv                     # macOS/Linux: python3 -m venv .venv
+.venv\Scripts\activate               # macOS/Linux: source .venv/bin/activate
 pip install -r requirements-dev.txt
-copy ..\.env.example .env
+copy ..\.env.example .env            # macOS/Linux: cp ../.env.example .env
 python -m alembic upgrade head
+python -m scripts.seed_all           # loads the verified DISCOM / tariff / incentive data
 uvicorn app.main:app --reload
 ```
 
-The API runs at `http://localhost:8000` (interactive docs at
-`http://localhost:8000/docs`). See [`backend/README.md`](backend/README.md)
-for more detail.
+The API runs at `http://localhost:8000` (interactive docs at `/docs`). See [`backend/README.md`](backend/README.md).
 
-## Frontend Setup
+### Frontend Setup
 
 ```bash
 cd frontend
 npm install
-copy .env.example .env
+copy .env.example .env               # macOS/Linux: cp .env.example .env
 npm run dev
 ```
 
-The app runs at `http://localhost:5173`. See
-[`frontend/README.md`](frontend/README.md) for more detail.
+The app runs at `http://localhost:5173`. See [`frontend/README.md`](frontend/README.md).
 
-## Docker Setup
-
-With Docker and Docker Compose installed:
+### Docker Setup
 
 ```bash
 docker compose up --build
 ```
 
-This starts PostgreSQL, the backend (`http://localhost:8000`, running
-`alembic upgrade head` automatically on every start — see
-`backend/docker-entrypoint.sh` — before `uvicorn`, so migrations never need
-a separate manual step here), and the frontend dev server
-(`http://localhost:5173`). Stop everything with `docker compose down` (add
-`-v` to also remove the PostgreSQL data volume).
+Starts PostgreSQL, the backend (`http://localhost:8000`, running `alembic upgrade head` on every start via `backend/docker-entrypoint.sh`) and the frontend dev server (`http://localhost:5173`, proxying `/api` to the backend through `BACKEND_PROXY_TARGET`). Stop with `docker compose down` (add `-v` to remove the database volume).
 
-The frontend container talks to the backend container over the Docker
-network (`BACKEND_PROXY_TARGET`, proxied by Vite's dev server — see
-`frontend/vite.config.ts`) rather than a hard-coded `localhost:8000`, so
-the same `docker-compose.yml` also works unmodified in GitHub Codespaces,
-where the browser and the containers aren't on the same machine (see
-below).
+### Run in GitHub Codespaces
 
-## Run in GitHub Codespaces
+Open the repository on GitHub → **Code → Codespaces → Create codespace on main**. `.devcontainer/` reuses `docker-compose.yml`, so PostgreSQL, the backend and the frontend start automatically, migrations included.
 
-No local install at all: open this repository on GitHub, click **Code →
-Codespaces → Create codespace on main**, and wait for it to build (a
-couple of minutes the first time). `.devcontainer/` reuses the same
-`docker-compose.yml` above — PostgreSQL, the backend, and the frontend all
-start automatically, migrations included. A preview of the frontend
-(port `5173`) opens automatically once it's ready; the backend
-(port `8000`) is forwarded too. Nothing needs to be run manually.
-
-## Health Check
-
-Once the backend is running:
+### Health Check
 
 ```bash
 curl http://localhost:8000/api/v1/health
@@ -304,501 +396,209 @@ curl http://localhost:8000/api/v1/health
 { "status": "healthy" }
 ```
 
+### Tests
+
+```bash
+cd backend && pytest                 # in-memory SQLite; no live network or AI calls
+cd frontend && npm test              # Node's built-in test runner
+cd frontend && npx tsc -b && npm run lint && npm run build
+```
+
+## Deployment
+
+**Frontend — GitHub Pages.** `.github/workflows/deploy-pages.yml` builds `frontend/` and publishes it on every push to `main` that touches `frontend/**` (or manually). The API URL comes from the `API_BASE_URL` repository variable, passed to the build as `VITE_API_BASE_URL`. Pages has no server rewrites, so the build copies `index.html` to `404.html` for deep links. The site is served under `/Smart-Location-Based-Renewable-Energy-Advisor/`.
+
+**Backend — Render.** [`render.yaml`](render.yaml) defines a Docker web service (`renewable-energy-advisor-api`, free plan, health check `/api/v1/health`) and a PostgreSQL database. Environment: `APP_ENV=production`, a generated `SECRET_KEY`, `RUN_DATA_SEED=true`, `CORS_ALLOWED_ORIGINS=https://kryvexcore.github.io`, `DATABASE_URL` from the database, and `NVIDIA_API_KEY` set manually in Render (never in the repository). On start the container runs `alembic upgrade head`, then (when `RUN_DATA_SEED=true`) the idempotent, validated data seed, then `uvicorn`. Backend changes are deployed from the Render dashboard.
+
+**The customer's device needs only a browser and internet** — no Python, PostgreSQL or local backend.
+
 ## Database Models
+
+14 tables (PostgreSQL, 9 Alembic migrations):
 
 ```
 User (id, created_at)
  └── Building (id, user_id, building_type, name, created_at, updated_at)
        └── Assessment (id, building_id, status, created_at, updated_at)
              ├── Location (latitude, longitude, formatted_address, city, state, country, postal_code)
-             ├── EnergyProfile (monthly_consumption_kwh, annual_consumption_kwh)
-             └── BuildingConstraints (roof_area_sqft, land_area_sqft, budget_inr, backup_required)
+             ├── EnergyProfile (monthly_electricity_bill_inr, monthly_consumption_kwh, consumption_source,
+             │                  consumption_estimate, annual_consumption_kwh)
+             ├── BuildingConstraints (roof_area_sqft, land_area_sqft, budget_inr, backup_required)
+             └── snapshots (ON DELETE CASCADE): SolarCalculationSnapshot, WindCalculationSnapshot,
+                 TariffCalculationSnapshot, IncentiveEvaluationSnapshot
+                 (assessment_id, calculation_version, [assumption_version,] input_snapshot, result_snapshot)
 
 LocationResourceSnapshot (latitude, longitude, resource_type, provider, payload, retrieved_at)
 
-SolarCalculationSnapshot (assessment_id, calculation_version, assumption_version,
-                           input_snapshot, result_snapshot, created_at)
-
 Discom (id, name, short_code, state, union_territory, is_active)
 
-ElectricityTariff (state, union_territory, discom_id, consumer_category,
-                    tariff_version, tariff_name, slab_min_kwh, slab_max_kwh,
-                    energy_charge_inr_per_kwh, fixed_charge_inr, demand_charge_inr,
-                    wheeling_charge_inr_per_kwh, effective_from, effective_to,
-                    source_url, source_document, source_name, last_verified, active)
+ElectricityTariff (state, union_territory, discom_id, consumer_category, tariff_version, tariff_name,
+                   slab_min_kwh, slab_max_kwh, energy_charge_inr_per_kwh, fixed_charge_inr, fixed_charge_basis,
+                   demand_charge_inr, wheeling_charge_inr_per_kwh, effective_from, effective_to,
+                   source_* fields, verification_status, verification_notes, last_verified, active)
 
-IncentiveProgram (scheme_name, scheme_version, description, level, incentive_type,
-                   state, union_territory, discom_id, consumer_category, technology,
-                   min_system_size_kw, max_system_size_kw, subsidy_type, subsidy_value,
-                   percentage_value, maximum_amount, calculation_rules, eligibility_rules,
-                   application_requirements, stacking_rules, effective_from, effective_to,
-                   verification_status, source_name, source_url, source_document,
-                   last_verified, active)
-
-TariffCalculationSnapshot (assessment_id, calculation_version,
-                            input_snapshot, result_snapshot, created_at)
-
-IncentiveEvaluationSnapshot (assessment_id, calculation_version,
-                              input_snapshot, result_snapshot, created_at)
+IncentiveProgram (scheme_name, scheme_version, level, incentive_type, state, union_territory, discom_id,
+                  consumer_category, technology, min/max_system_size_kw, subsidy_type, subsidy_value,
+                  percentage_value, maximum_amount, calculation_rules, eligibility_rules,
+                  application_requirements, stacking_rules, effective_from, effective_to,
+                  verification_status, source_* fields, last_verified, active)
 ```
 
-- `building_type` (the app's own assessment classification):
-  `home` | `school` | `college` | `office` | `shop` | `small_institution` | `other`.
-  `ElectricityTariff.consumer_category` and `IncentiveProgram.consumer_category`
-  both instead use the separate `TariffConsumerCategory` enum below (Phase 6
-  reuses Phase 5's mapping rather than creating a second, incompatible one —
-  see [Incentive Engine (Phase 6)](#incentive-engine-phase-6)).
-- `consumer_category` on `ElectricityTariff`/`IncentiveProgram` (`TariffConsumerCategory`):
-  `residential` | `commercial` | `educational_institution` | `public_service` |
-  `industrial` | `agriculture` | `other`
-- `incentive_type` on `IncentiveProgram` (what kind of instrument, distinct
-  from `level` = who offers it, and `subsidy_type` = how it's calculated):
-  `capital_subsidy` | `central_financial_assistance` | `state_subsidy` |
-  `discom_incentive` | `rebate` | `interest_subvention` | `grant` |
-  `performance_incentive` | `other`
-- `subsidy_type` on `ElectricityTariff`/`IncentiveProgram` — Phase 6 added
-  `slab_based` and `benchmark_cost_based` to the existing
-  `percentage` | `fixed_amount` | `per_kw` | `other`.
-- `verification_status` on `IncentiveProgram` — distinct from `active`; only
-  `verified` rows are used for automatic eligibility/calculation:
-  `verified` | `pending_review` | `expired` | `superseded` | `unavailable`
-- `status`: `draft` | `submitted` | `completed` — Phase 2 always saves `submitted`
-- `User` has no authentication yet. Every request is attributed to a single
-  deterministic prototype user (`app/services/prototype_user.py`) — see the
-  Security note below.
-- `Location`, `EnergyProfile`, and `BuildingConstraints` store only
-  user-provided or browser-derived values persisted with an assessment — no
-  renewable-energy calculations happen here.
-- `LocationResourceSnapshot` is a Phase 3 write-through audit log of what a
-  resource provider returned and when, keyed by coordinate rather than a
-  specific assessment (see [Location Intelligence](#location-intelligence-phase-3)
-  below) — it is not a foreign key relation off `Location`.
-- `Discom`, `ElectricityTariff`, and `IncentiveProgram` are the India-based
-  tariff/incentive architecture — see
-  [India-Based Tariff & Incentive Architecture](#india-based-tariff--incentive-architecture)
-  below. Both `ElectricityTariff` (Phase 5) and `IncentiveProgram` (Phase 6)
-  now have working calculation engines, but **no production rows are seeded
-  in either** — populating real tariff orders and scheme data is honestly
-  unfinished, not unbuilt (see each phase's data-coverage notes for why).
-- `SolarCalculationSnapshot` is a Phase 4 write-through audit log (same
-  pattern as `LocationResourceSnapshot`) recording the exact input and
-  result of every solar calculation, tagged with the engine/assumption
-  versions that produced it — see
-  [Solar Engine (Phase 4)](#solar-engine-phase-4) below. Deleting an
-  assessment cascades to its snapshots (`ON DELETE CASCADE`).
-- `TariffCalculationSnapshot` is the same write-through audit pattern for
-  Phase 5's tariff calculations (`ON DELETE CASCADE` from day one — see the
-  Phase 4 fix note in [Security Notes](#security-notes-phases-2-6) for why
-  that matters).
-- `IncentiveEvaluationSnapshot` is the same pattern again for Phase 6's
-  incentive evaluations (`ON DELETE CASCADE` from day one).
+- **Recommendation and financial results have no tables** — they are recomputed on request from the tables above.
+- `building_type` (assessment classification): `home` | `school` | `college` | `office` | `shop` | `small_institution` | `other`. Tariffs and incentives use the separate `TariffConsumerCategory` (`residential` | `commercial` | `educational_institution` | `public_service` | `industrial` | `agriculture` | `other`) through one explicit mapping — the two are never treated as equal.
+- `EnergyProfile.consumption_source` is `user_kwh` (entered) or `user_bill_estimate` (derived from the bill); `monthly_consumption_kwh` is `NULL` when an estimate could not be made — it is never defaulted.
+- `IncentiveProgram.level`: `central` | `state` | `discom`. `incentive_type`: `capital_subsidy`, `central_financial_assistance`, `state_subsidy`, `discom_incentive`, `rebate`, `interest_subvention`, `grant`, `performance_incentive`, `other`. `subsidy_type`: `percentage`, `fixed_amount`, `per_kw`, `slab_based`, `benchmark_cost_based`, `other`. Only `verified` rows are used for calculations (`verification_status` is distinct from `active`).
+- `LocationResourceSnapshot` is a best-effort audit log keyed by coordinate, not a foreign key off `Location`.
+- There is no authentication: every request is attributed to one prototype user (`services/prototype_user.py`).
 
 ## API Endpoints
 
-All under `API_V1_PREFIX` (`/api/v1`):
+All under `/api/v1` — 19 routes. Only `POST /advisor/chat` calls an AI provider.
 
-| Method | Path                    | Purpose                          |
-| ------ | ----------------------- | --------------------------------- |
-| GET    | `/health`               | Health check                       |
-| POST   | `/assessments`          | Create and persist an assessment    |
-| GET    | `/assessments`          | List recent assessments (newest first) |
-| GET    | `/assessments/{id}`     | Retrieve a saved assessment           |
-| PUT    | `/assessments/{id}`     | Update an assessment (partial, per-section) |
-| DELETE | `/assessments/{id}`     | Delete an assessment                   |
-| GET    | `/locations/search`     | Geocode a place name (`?q=...`)          |
-| GET    | `/locations/profile`    | Normalized solar/wind/weather/elevation data, plus India location resolution (state/UT/district/city/DISCOM), for a coordinate (`?latitude=...&longitude=...`) |
-| POST   | `/solar/calculate`      | Technical solar system options for an assessment (`{"assessment_id": "..."}`) |
-| POST   | `/assessments/{id}/estimate-consumption` | Retry the bill-based kWh estimate (bill-first assessments) |
-| GET    | `/recommendations/{id}` | Deterministic technology + size recommendation built from the existing engines (no AI) |
-| POST   | `/wind/calculate`       | Technical wind screening for an assessment (`{"assessment_id": "..."}`) |
-| POST   | `/tariffs/calculate`    | Estimated baseline electricity bill for an assessment (`{"assessment_id": "...", "calculation_date": "YYYY-MM-DD"}`, date optional) |
-| GET    | `/tariffs`              | Filtered tariff slab lookup (`?state=...&union_territory=...&consumer_category=...&discom_id=...`) |
-| POST   | `/incentives/evaluate`  | Incentive eligibility for an assessment (`{"assessment_id": "...", "technology": "solar", "proposed_capacity_kw": 3, "calculation_date": "YYYY-MM-DD"}`, date optional) |
-| GET    | `/incentives`           | Filtered incentive programme lookup (`?state=...&union_territory=...&discom_id=...&technology=...&consumer_category=...&level=...`) |
+| Group | Method | Path | Purpose |
+| --- | --- | --- | --- |
+| Health | GET | `/health` | Health check |
+| Assessment | POST | `/assessments` | Create and persist an assessment (bill-first kWh estimate) |
+| | GET | `/assessments` | List recent assessments (`?limit=`) |
+| | GET | `/assessments/{id}` | Retrieve a saved assessment |
+| | PUT | `/assessments/{id}` | Update an assessment |
+| | POST | `/assessments/{id}/estimate-consumption` | Retry the bill-based kWh estimate |
+| | DELETE | `/assessments/{id}` | Delete an assessment |
+| Location | GET | `/locations/search` | Geocode a place name (`?q=…&limit=`) |
+| | GET | `/locations/profile` | Solar/wind/weather/elevation and India resolution for a coordinate (`?latitude=…&longitude=…`) |
+| Solar | POST | `/solar/calculate` | Solar system options `{"assessment_id": "…"}` |
+| Wind | POST | `/wind/calculate` | Small-wind screening `{"assessment_id": "…"}` |
+| Tariff | POST | `/tariffs/calculate` | Estimated baseline bill `{"assessment_id": "…", "calculation_date"?: "YYYY-MM-DD"}` |
+| | GET | `/tariffs` | Filtered tariff-slab lookup (`state`, `union_territory`, `consumer_category`, `discom_id`) |
+| Incentive | POST | `/incentives/evaluate` | Eligibility for a system `{"assessment_id", "technology", "proposed_capacity_kw", "calculation_date"?}` |
+| | GET | `/incentives` | Filtered incentive-programme lookup |
+| Recommendation | GET | `/recommendations/{assessment_id}` | Deterministic technology + size recommendation (no AI) |
+| Financial | GET | `/financial-analysis/{assessment_id}` | Estimated cost, incentive, net investment, savings, payback (no AI) |
+| Advisor | POST | `/advisor/chat` | Ask SHREA AI `{"assessment_id", "message", "history"?}` (one AI call) |
+| | GET | `/advisor/overview/{assessment_id}` | Summary and suggested questions (no AI) |
 
-Example `POST /api/v1/assessments` payload:
+Example `POST /api/v1/assessments` (bill-first — supply `monthly_electricity_bill_inr`, `monthly_consumption_kwh`, or both):
 
 ```json
 {
   "building": { "building_type": "home", "name": "My Home" },
   "location": {
-    "latitude": 13.114,
-    "longitude": 80.154,
+    "latitude": 13.0827,
+    "longitude": 80.2707,
     "formatted_address": "Chennai, Tamil Nadu, India",
     "city": "Chennai",
     "state": "Tamil Nadu",
     "country": "India"
   },
-  "energy": { "monthly_consumption_kwh": 950 },
+  "energy": { "monthly_electricity_bill_inr": 7500 },
   "constraints": {
-    "roof_area_sqft": 2500,
+    "roof_area_sqft": 1200,
     "land_area_sqft": null,
-    "budget_inr": 300000,
-    "backup_required": true
+    "budget_inr": null,
+    "backup_required": false
   }
 }
 ```
 
-The response includes the generated `id`, `status: "submitted"`, timestamps,
-and the saved nested `building` / `location` / `energy` / `constraints`
-objects — this is the same shape `GET /assessments/{id}` returns.
+The response contains the generated `id`, `status`, timestamps and the saved nested objects; for a bill-first assessment `energy` includes the derived `monthly_consumption_kwh`, `consumption_source: "user_bill_estimate"` and the `consumption_estimate` (status, range, tariff used, limitations). See [`docs/bill-first-assessment.md`](docs/bill-first-assessment.md).
+
+---
 
 ## Location Intelligence (Phase 3)
 
 ```
-User
- v
-Frontend location search / map (react-leaflet)
- v
-FastAPI  GET /locations/search | GET /locations/profile
- v
-LocationService  (app/services/location/location_service.py)
- v
-Provider Factory  ->  Geocoding | Solar | Wind | Weather | Elevation adapters
- |
- +--> IndiaLocationResolver  ->  state/UT -> district -> city -> DISCOM
- v
-Normalized LocationProfile  (never a specific provider's raw shape)
+User → Frontend location search / map (react-leaflet)
+     → FastAPI  GET /locations/search | GET /locations/profile
+     → LocationService  (app/services/location/location_service.py)
+     → Provider Factory → Geocoding | Solar | Wind | Weather | Elevation adapters
+        └→ IndiaLocationResolver → state/UT → district → city → DISCOM
+     → Normalized LocationProfile  (never a specific provider's raw shape)
 ```
 
-`LocationService` and the routes only ever depend on the interfaces in
-`app/services/location/providers/base.py` and the normalized schemas in
-`app/schemas/location.py` — never on a specific provider's response shape.
-Swapping a provider means adding one class and one branch in
-`provider_factory.py`; nothing else changes.
+`LocationService` and the routes depend only on the interfaces in `app/services/location/providers/base.py` and the normalized schemas in `app/schemas/location.py`. Swapping a provider means adding one class and one branch in `provider_factory.py`.
 
-**Providers (all free, keyless, real — no mock data reaches production):**
+| Category | Provider | Data returned |
+| --- | --- | --- |
+| Geocoding | Nominatim (OSM) | Search and reverse geocoding |
+| Solar | NASA POWER | Monthly + annual solar irradiance (`ALLSKY_SFC_SW_DWN`) |
+| Wind | NASA POWER | Monthly + annual wind speed at 10 m and 50 m (`WS10M`, `WS50M`) |
+| Weather | NASA POWER | Temperature, precipitation and irradiance (`T2M`, `PRECTOTCORR`, all-sky/clear-sky) |
+| Elevation | Open-Elevation | Elevation at the point (shown in Location Intelligence; not used by the engines) |
 
-| Category  | Provider       | Data returned                                    |
-| --------- | -------------- | ------------------------------------------------- |
-| Geocoding | Nominatim (OSM) | Search + reverse geocoding, scoped to India         |
-| Solar     | NASA POWER      | Monthly + annual global horizontal irradiance (GHI)  |
-| Wind      | NASA POWER      | Monthly + annual wind speed at 10m **and** 50m         |
-| Weather   | NASA POWER      | Monthly + annual temperature, precipitation, cloud index (derived from all-sky/clear-sky irradiance) |
-| Elevation | Open-Elevation  | Elevation at the queried point                          |
-
-Every provider is independently swappable via `*_PROVIDER` / `*_API_KEY` env
-vars (see [Environment Configuration](#environment-configuration)) — a
-provider that requires a key simply isn't wired into `provider_factory.py`
-yet in Phase 3, and requesting one raises a clear "not configured" error
-rather than silently falling back to fake data.
-
-**Resilience:** each of the four resource sections in a `LocationProfile`
-degrades independently. If wind times out but solar succeeds, the response
-is still `200 OK` with `wind: null` and `errors.wind: {"code": "timeout", ...}`
-— never a fabricated zero. `GET /locations/search` is the exception: if
-geocoding itself fails there's no partial result to return, so it responds
-with a mapped HTTP status (429 rate-limited, 504 timeout, 502 upstream
-failure, 501 not configured).
-
-**Caching:** `app/services/location/cache.py` defines a minimal
-`LocationCache` protocol. The default `InMemoryLocationCache` needs no
-infrastructure — Redis is deliberately not required to run this app
-locally. A Redis-backed implementation could be dropped in behind the same
-interface later. Cache keys include the resource type and rounded
-coordinate; entries expire after `LOCATION_CACHE_TTL_SECONDS` (default 24h,
-since climatology and elevation data barely change) and failed fetches are
-never cached, so a transient error is retried on the next request.
-`LocationResourceSnapshot` additionally persists every successful fetch to
-PostgreSQL as a best-effort audit log (survives restarts; not on the
-request's critical path).
-
-**Data freshness:** every populated section carries `source` and
-`retrieved_at`; solar/wind/weather also carry `period_represented` (NASA
-POWER's climatology is a 2001-2020 average, not real-time). The frontend
-distinguishes real retrieved data, "unavailable" (with the specific reason:
-timeout/rate-limited/not-configured/etc.), and "not yet requested" — never
-zero-as-unavailable, and it never shows a made-up suitability score.
-
-**Mock testing:** `backend/tests/location_fakes.py` defines fake providers
-used only by tests (`test_location_providers.py`, `test_location_service.py`,
-`test_locations_api.py`). They are never imported by
-`provider_factory.py`, so the production path can't accidentally select a
-mock. Provider-normalization tests replay real, previously-captured response
-shapes through `monkeypatch`ed `httpx.get` calls — no test makes a live
-network call.
+- **Resilience:** each resource section degrades independently — if wind times out but solar succeeds, the response is still `200 OK` with `wind: null` and `errors.wind` — never a fabricated zero. `GET /locations/search` maps provider failures to 429 / 504 / 502 / 501.
+- **Caching:** an in-memory cache with a 24 h TTL (`LOCATION_CACHE_TTL_SECONDS`); failed fetches are never cached. Successful fetches are also written to `location_resource_snapshots` as a best-effort audit log.
+- **Freshness:** every populated section carries `source` and `retrieved_at`; solar/wind/weather also carry `period_represented` (NASA POWER climatology is a multi-year average, not real time).
+- **Tests** use fake providers (`tests/location_fakes.py`) that are never imported by `provider_factory.py`; no test makes a live network call.
 
 ### India location resolution
 
-Every `GET /locations/profile` response includes an `india` section
-(`app/services/location/india_resolver.py`), resolving the reverse-geocoded
-address to India's administrative hierarchy for future tariff/incentive
-matching:
+Every `GET /locations/profile` response includes an `india` section (`app/services/location/india_resolver.py`): `latitude/longitude → state or union territory → district → city → DISCOM`.
 
-```
-latitude/longitude -> state or union territory -> district -> city -> DISCOM
-```
-
-- `state`/`union_territory` are normalized to the canonical spelling in
-  `app/core/india_geography.py` (a static, universally-known list of India's
-  28 states and 8 union territories — not a sourced/versioned policy value,
-  unlike tariffs and incentives below). A geocoder result that doesn't match
-  any known state/UT (typos, a location outside India, an unrecognized
-  alias) comes back `null` — never a guessed nearest match.
-- `district`/`city` come directly from the geocoder's normalized
-  `GeocodingCandidate` (Nominatim's `state_district`/`county` and
-  `city`/`town`/`village` address components).
-- `discom` is resolved from the `Discom` table by matching the normalized
-  state/UT. **The app never guesses a DISCOM from a city name.** If zero
-  DISCOM rows match, or if more than one DISCOM serves that state and
-  there's no way to disambiguate further, `discom` is `null` and
-  `discom_status` explains why (`"not_identified"` or `"ambiguous"` — only
-  `"identified"` when exactly one active match exists). The `discoms` table
-  ships empty; nothing is guessed or seeded as if it were real.
+- `state`/`union_territory` are normalized to the canonical spelling in `app/core/india_geography.py` (28 states and 8 UTs). A geocoder result that matches none comes back `null` — never a guessed nearest match.
+- `district`/`city` come from the geocoder's normalized address components.
+- `discom` is resolved from the `discoms` table (five DISCOMs are loaded). **A DISCOM is never guessed from a city name:** with zero matches, or several and no way to disambiguate, `discom` is `null` and `discom_status` is `not_identified` or `ambiguous`; `identified` only when exactly one active match exists.
 
 ## India-Based Tariff & Incentive Architecture
 
-Prepared the data model the India-Based Solar Engine (Phase 4), the India
-Electricity Tariff Engine (Phase 5), and the Incentive Engine (Phase 6,
-below) all read from. **Both the tariff and incentive sides now have
-working calculation engines** (see
-[Electricity Tariff Engine (Phase 5)](#electricity-tariff-engine-phase-5)
-and [Incentive Engine (Phase 6)](#incentive-engine-phase-6)) — but **no
-production tariff or incentive rows are seeded in either**; see each
-section's honest-data-coverage note for why.
-
 ```
-LOCATION INTELLIGENCE  ------->  India Location Resolver
-   (solar/wind/weather/            (state/UT, district, city, DISCOM)
-    elevation — real-time
-    lookup, cached)                        |
-                                            v
-                              TARIFF / INCENTIVE DATA
-                        (ElectricityTariff, IncentiveProgram —
-                         versioned, sourced, DB-only, no calculation)
-                                            |
-                                            v
-                         Future Calculation Engines (Phase 4+)
+LOCATION INTELLIGENCE → India Location Resolver (state/UT, district, city, DISCOM)
+                                   │
+                                   ▼
+                    TARIFF / INCENTIVE DATA
+       (ElectricityTariff, IncentiveProgram — versioned, sourced, in PostgreSQL)
+                                   │
+                                   ▼
+        Calculation engines: tariff · incentive · (recommendation · financial reuse them)
 ```
 
-This is a deliberate separation: **location intelligence provides
-environmental/resource data; tariff/incentive data provides electricity
-economics and scheme eligibility; calculation engines combine both with
-deterministic formulas.** No layer invents a value that belongs to another.
+Location intelligence provides resource data; tariff/incentive data provides electricity economics and scheme eligibility; the engines combine them with deterministic formulas. No layer invents a value that belongs to another.
 
-### Tariff architecture (`app/models/electricity_tariff.py`)
-
-One row per tariff slab (a real tariff order typically has several, e.g.
-0–100 kWh, 101–300 kWh, ...): `state` / `union_territory`, `discom_id`
-(nullable FK to `Discom`), `consumer_category` (`TariffConsumerCategory` —
-a real Indian DISCOM tariff category, distinct from `BuildingType`; see
-[Electricity Tariff Engine (Phase 5)](#electricity-tariff-engine-phase-5)),
-`tariff_version` (groups the slab rows of one published schedule),
-`tariff_name`, `slab_min_kwh`/`slab_max_kwh`, `energy_charge_inr_per_kwh`,
-`fixed_charge_inr`, `demand_charge_inr`, `wheeling_charge_inr_per_kwh`,
-plus the versioning/source fields below. The table is empty in production;
-only `tests/test_tariff_and_incentive_models.py`'s clearly-named `TEST-*`
-fixtures ever populate it — see the Phase 5 section for why no state's real
-data has been seeded yet.
-
-### Incentive architecture (`app/models/incentive_program.py`)
-
-One row per scheme *version* (see
-[Incentive Engine (Phase 6)](#incentive-engine-phase-6) for the full
-architecture). `level` separates **central** / **state** / **discom**
-schemes — they are never combined into one number. `consumer_category`
-(`TariffConsumerCategory`, same enum and mapping as `ElectricityTariff` —
-never a second, incompatible category concept) is nullable (a scheme can
-be category-agnostic) but the eligibility engine treats `null` as "check
-`eligibility_rules`", never as "applies to everyone" — this is exactly
-what stops a residential central subsidy (e.g. PM Surya Ghar) from being
-silently applied to a school, college, or office. `technology`
-(solar/wind/hybrid/battery/other), `incentive_type` (what kind of
-instrument — capital subsidy, CFA, rebate, etc.), `subsidy_type` (how the
-amount is calculated — percentage/fixed_amount/per_kw/slab_based/
-benchmark_cost_based/other) with `subsidy_value`/`percentage_value`/
-`calculation_rules` (meaning depends on `subsidy_type`), `maximum_amount`
-(a cap), `min_system_size_kw`/`max_system_size_kw`, `eligibility_rules` +
-`application_requirements` + `stacking_rules` (JSON, for conditions that
-don't fit a column), and `verification_status` (distinct from `active` —
-only `verified` rows are used for eligibility/calculation). The table is
-empty in production, same as tariffs.
-
-The architecture supports every case the eligibility rules require: a
-central-only scheme with no state top-up, a state scheme with no DISCOM
-rule, multiple simultaneously-applicable schemes (multiple rows, each
-independently evaluated — never auto-summed), no additional incentive for
-a given state (simply no row), an expired scheme (`effective_to` in the
-past), and "eligibility unknown" (no row matches, or a row exists but
-isn't `verified` — the honest absence of usable data, not a guess).
-
-### Data versioning & source traceability
-
-`ElectricityTariff` and `IncentiveProgram` carry the same versioning
-fields: `effective_from`, `effective_to`, `last_verified`, `source_url`,
-`source_document`, `source_name`, `active` (`IncentiveProgram` additionally
-has `verification_status` and a `scheme_version` string, since a
-government scheme's version history matters more than a tariff schedule's
-— see [Incentive Engine (Phase 6)](#incentive-engine-phase-6)). Both
-engines resolve the record valid on the calculation date and never use an
-expired record when a current one exists — this is implemented and tested,
-not just modeled. The frontend shows, for any tariff or incentive:
-`Source: <source_name>`, `Last verified: <last_verified>`,
-`Effective: <effective_from> – <effective_to or "ongoing">`. No fake
-source URLs or verification dates are ever stored — an unpopulated record
-simply doesn't exist yet.
-
-### DISCOM registry (`app/models/discom.py`)
-
-A simple, empty-by-default registry: `name`, `short_code`, `state` /
-`union_territory` (exactly one expected per row), `is_active`. Real DISCOM
-boundary data (which DISCOM serves which district/city) is out of scope
-for this update — populating it from an authoritative source (each state's
-electricity regulatory commission) is future work.
+- **Tariffs** (`app/models/electricity_tariff.py`): one row per slab of a published schedule — `state`/`union_territory`, nullable `discom_id`, `consumer_category`, `tariff_version`, slab bounds, `energy_charge_inr_per_kwh`, `fixed_charge_inr` (+ `fixed_charge_basis`, what it is charged *per*), optional demand/wheeling charges, and the provenance fields below.
+- **Incentives** (`app/models/incentive_program.py`): one row per scheme *version*. `level` separates **central / state / discom** schemes, which are never combined into one number. A `null` `consumer_category` means "check `eligibility_rules`", never "applies to everyone" — this is what stops a residential central subsidy such as PM Surya Ghar from being applied to a school, college or office.
+- **Versioning and provenance:** both carry `effective_from`, `effective_to`, `last_verified`, `source_url`, `source_document`, `source_name`, `verification_status` and `active`; incentives also have `scheme_version`. Both engines resolve the record valid on the calculation date and never use an expired record when a current one exists. The dashboard shows *Source*, *Last verified* and *Effective* for every tariff and incentive.
+- **DISCOM registry** (`app/models/discom.py`): `name`, `short_code`, `state`/`union_territory`, `is_active`. Five DISCOMs are loaded; boundary data (which DISCOM serves which district) is not — where several serve a state, the result is `ambiguous`, not guessed.
 
 ## Solar Engine (Phase 4)
 
-**Phase 4 estimates technical solar generation and system feasibility. It
-does NOT determine a final recommendation, subsidy, tariff-based savings,
-payback, or final purchase price** — those are later phases (see
-[Financial Boundary](#financial-boundary) below).
+Estimates technical solar generation and feasibility. **It chooses no size and computes no cost, subsidy, savings or payback** — later engines reuse its output.
 
 ```
-Location Intelligence (Phase 3, India-based resource data)
-        v
-Normalized Solar Resource (app.schemas.location.SolarResourceProfile)
-        v
-Solar Engine (app/engines/solar/ — pure functions, no FastAPI/DB/API import)
-        v
-System Options (1-10 kW, each independently evaluated)
-        v
-Future Financial Engine
+Location Intelligence (India-based solar resource)
+  → SolarCalculationService (only bridge: assessment + location profile → plain input)
+  → Solar Engine (app/engines/solar/ — pure functions)
+  → System options 1–10 kW, each independently evaluated
 ```
 
-`app/engines/solar/` never imports FastAPI, SQLAlchemy, or an HTTP client.
-`SolarCalculationService` (`app/services/solar_calculation_service.py`)
-is the only thing that bridges the two worlds: it loads the Assessment,
-calls the existing Phase 3 `LocationService.get_profile()` — **the Solar
-Engine never calls NASA POWER or any provider directly** — and hands the
-engine a plain `SolarEngineInput`.
-
-### Formula
-
-Standard rooftop-PV yield estimation, applied uniformly to every Indian
-location — there is no per-state branching; the only thing that varies by
-location is the resource value itself:
+The engine never calls NASA POWER or any provider; the same formula applies everywhere — only the resource value varies by location:
 
 ```
-Annual Generation (kWh) = Capacity (kWp) x Daily Solar Resource (kWh/m^2/day) x 365 x Performance Ratio
+Annual generation (kWh) = Capacity (kWp) × Daily solar resource (kWh/m²/day) × 365 × Performance ratio
 ```
 
-The daily solar resource value is NASA POWER's `ALLSKY_SFC_SW_DWN`
-(kWh/m²/day), which is numerically equivalent to "peak sun hours per day"
-— exactly what this formula expects (the same method underlying
-widely-used tools like NREL's PVWatts). Monthly generation uses each
-month's own average daily value and its real calendar day-count (28-31),
-never a naive annual-divided-by-12 split. See
-`app/engines/solar/generation.py`.
+`ALLSKY_SFC_SW_DWN` (kWh/m²/day) equals "peak sun hours per day", as the formula expects (the method behind tools such as NREL's PVWatts). Monthly generation uses each month's own daily value and real day count — never annual ÷ 12. Roof area required scales from panel wattage, panel footprint and a layout factor (`sizing.py`).
 
-Roof area required scales from panel wattage, panel footprint, and a
-layout/shading-clearance factor — see `app/engines/solar/sizing.py`.
-
-### Assumptions (`app/engines/solar/assumptions.py`)
-
-Every non-measured constant is named, versioned, and sourced — never
-inline in a calculation function:
-
-| Assumption | Default | Basis |
+| Assumption (`assumptions.py`) | Default | Basis |
 | --- | --- | --- |
-| `performance_ratio` | 0.75 | Conservative default for Indian rooftop PV (typical published range 0.70-0.85); covers inverter, wiring, soiling, temperature losses |
-| `panel_wattage_w` | 400 W | Representative modern monocrystalline PERC module |
-| `panel_area_sqft` | 21 sq ft | Physical footprint of a ~400W panel |
-| `layout_factor` | 1.4 | Typical allowance for mounting spacing, walkways, shading clearance |
+| `performance_ratio` | 0.75 | Conservative default for Indian rooftop PV; covers inverter, wiring, soiling, temperature losses |
+| `panel_wattage_w` | 400 W | Representative modern monocrystalline module |
+| `panel_area_sqft` | 21 sq ft | Physical footprint of a ~400 W panel |
+| `layout_factor` | 1.4 | Allowance for spacing, walkways, shading clearance |
 
-`ASSUMPTION_VERSION` and `ENGINE_CALCULATION_VERSION` are returned in
-every response and recorded in `SolarCalculationSnapshot`, so a past
-result stays interpretable even after these values are later revised.
+`ASSUMPTION_VERSION` and `ENGINE_CALCULATION_VERSION` are returned with every response and recorded in `SolarCalculationSnapshot`. Each option reports annual/monthly generation, `roof_area_required_sqft`, `generation_coverage_percent` (generation ÷ annual consumption, **not capped at 100 %** and not a claim about the bill) and `technical_status` (`technically_feasible` | `technically_infeasible` | `insufficient_data`, e.g. no roof area). If the resource is unavailable, non-positive or in an unknown unit, the whole response is `status: "insufficient_data"` with a reason. 1 electricity unit = 1 kWh throughout.
 
-### Units
-
-1 electricity unit = 1 kWh throughout — the field is always
-`monthly_consumption_kwh`/`annual_consumption_kwh`, never a bare `units`.
-
-### Candidate evaluation and technical feasibility
-
-Every request evaluates all of 1, 2, 3, ..., 10 kW independently — **the
-engine never picks or labels a "best", "recommended", "optimal", or
-"cheapest" option**; that comparison is the future Recommendation Engine's
-job. Each option reports:
-
-- `estimated_annual_generation_kwh` / `estimated_monthly_generation_kwh`
-- `roof_area_required_sqft`
-- `generation_coverage_percent` — generation ÷ annual consumption, **not
-  capped at 100%** and **not a claim about the electricity bill** (see
-  Financial Boundary below)
-- `technical_status`: `technically_feasible` | `technically_infeasible` |
-  `insufficient_data` (e.g. roof area wasn't provided — generation numbers
-  are still shown even then, since they don't depend on roof area)
-
-If the location's solar resource is unavailable, non-positive, or in an
-unrecognized unit, the whole response is `status: "insufficient_data"`
-with a `reason` — never a fabricated result.
-
-### Financial boundary
-
-Generation is not the same as a lower electricity bill. Actual savings
-depend on tariff, self-consumption, export/net-metering rules, fixed
-charges, and applicable incentives — none of which are calculated in
-Phase 4. The response includes no cost, subsidy, saving, or payback field,
-and the frontend explicitly states "Financial analysis ... will be
-available in a later phase" rather than implying it already exists.
-
-### API
-
-`POST /api/v1/solar/calculate` — `{"assessment_id": "..."}`. Flow:
-retrieve the assessment, retrieve its Phase 3 location profile, validate
-solar-resource availability, run the engine, record a
-`SolarCalculationSnapshot`, return the structured result. A 404 means the
-assessment doesn't exist; `status: "insufficient_data"` (still `200 OK`)
-means the assessment/location exists but the calculation couldn't run
-(missing coordinates, unavailable resource, invalid input) — the frontend
-distinguishes these.
-
-### Reproducibility
-
-Given the same input, `calculation_version`, and `assumption_version`, the
-engine is a pure function and returns identical `options` and
-`annual_consumption_kwh` — verified directly (`test_solar_engine.py`) and
-live against the real API.
+`POST /api/v1/solar/calculate` — a 404 means the assessment does not exist; `status: "insufficient_data"` (still `200`) means the calculation could not run. The engine is a pure function: the same input and versions give identical output.
 
 ## Electricity Tariff Engine (Phase 5)
 
-**Phase 5 estimates a baseline grid-electricity bill from an assessment's
-existing consumption and location data. It does NOT calculate subsidies,
-solar cost, payback, ROI, or savings** — those remain later-phase
-boundaries (see [Financial boundary](#tariff-financial-boundary) below).
+Estimates a **baseline grid bill** from the assessment's consumption and location. **It applies no subsidy and computes no solar cost, savings or payback** — the Financial Analysis Engine and the bill estimator reuse it.
 
 ```
-Assessment (energy.monthly_consumption_kwh, building.building_type)
-        v
-Phase 3 LocationService.get_profile() -> IndiaLocationContext
-        (state/UT, DISCOM, discom_status — never re-derived)
-        v
-BuildingType -> TariffConsumerCategory (explicit mapping, never assumed equal)
-        v
-TariffRepository (state/UT + DISCOM + category candidates)
-        v
-Tariff Engine (app/engines/tariff/ — pure functions, no FastAPI/DB/API import)
-   - select the tariff_version covering the calculation date
-   - cumulative/progressive slab calculation (Decimal, never float)
-   - charge components: energy, fixed, demand, wheeling, time-of-day
-        v
-Estimated baseline bill + per-component included/not_included/not_calculated status
+Assessment → location profile (state/UT, DISCOM — never re-derived)
+  → BuildingType → TariffConsumerCategory (explicit mapping)
+  → TariffRepository (state/UT + DISCOM + category)
+  → Tariff Engine (app/engines/tariff/): select version by date → progressive slabs (Decimal) → charge components
+  → estimated bill + per-component included / not_included / not_calculated
 ```
-
-`app/engines/tariff/` never imports FastAPI, SQLAlchemy, or an HTTP client
-— the same rule as `app/engines/solar/`. `TariffCalculationService`
-(`app/services/tariff_calculation_service.py`) is the only bridge: it loads
-the Assessment, calls the existing Phase 3 `LocationService.get_profile()`
-(the tariff engine never re-runs geocoding or DISCOM resolution itself),
-maps `BuildingType` to `TariffConsumerCategory`, queries candidate tariff
-rows, and hands the engine a plain list of slab DTOs.
-
-### Consumer category mapping (`app/engines/tariff/consumer_category_mapping.py`)
-
-A real DISCOM tariff category is not the same thing as the app's
-`BuildingType`, so the two are never treated as interchangeable. The
-mapping is one explicit, testable dict:
 
 | BuildingType | TariffConsumerCategory |
 | --- | --- |
@@ -808,423 +608,66 @@ mapping is one explicit, testable dict:
 | `small_institution` | `public_service` |
 | `other` | `other` |
 
-### DISCOM scoping
+- **DISCOM scoping:** `identified` → that DISCOM's tariff, falling back to a state-level tariff only if it has none; `ambiguous`/`not_identified` → only a state-level tariff may be used, otherwise `discom_ambiguous` / `tariff_not_configured`. A DISCOM-specific tariff is never guessed.
+- **Slabs** (`slab_calculation.py`): cumulative/progressive billing with `Decimal` — never `float`. `validation.py` rejects (raises, never "fixes") empty, negative, overlapping, non-contiguous slabs, slabs not starting at 0, or more than one unlimited slab.
+- **Version selection** (`version_selection.py`): the version whose `[effective_from, effective_to]` covers the calculation date, preferring the latest `effective_from`, ties broken by the version string — deterministic, never dependent on row order.
+- **Charge components:** `energy` is always included; `fixed` when a flat monthly/per-connection charge is configured (per-kW/kVA/HP charges are `not_calculated`, and a charge with no recorded basis is never assumed monthly); `wheeling` only when the tariff configures it; `demand` and `tod` are **always** `not_calculated` (sanctioned load and interval data are not collected). `estimated_monthly_bill_inr` sums the included components; `is_partial_estimate` and `excluded_components` make that explicit.
+- **Bill estimation** (`bill_estimation.py`): inverts this engine to estimate kWh from a bill (see [How a Result Is Produced](#how-a-result-is-produced)).
 
-Never guesses which DISCOM's tariff applies:
+`POST /api/v1/tariffs/calculate` returns `status`: `ok`, `insufficient_data` (no coordinates or unresolved state/UT), `discom_ambiguous`, or `tariff_not_configured`. `GET /api/v1/tariffs` browses the configured slabs.
 
-- `discom_status: "identified"` — prefers that exact DISCOM's tariff rows;
-  falls back to a state-level tariff (`discom_id IS NULL`) only if that
-  DISCOM has none configured.
-- `discom_status: "ambiguous"` or `"not_identified"` — only a state-level
-  tariff (no specific DISCOM) may be used; a DISCOM-specific tariff is
-  never guessed. If no state-level tariff exists either, the response is
-  `discom_ambiguous` (ambiguous case) or `tariff_not_configured`.
-
-### Slab calculation (`app/engines/tariff/slab_calculation.py`)
-
-Cumulative/progressive ("telescoping") billing using `Decimal` throughout
-— never `float` — for exact money math. Each slab covers
-`[slab_min_kwh, slab_max_kwh)`; the final slab's `slab_max_kwh` is `None`
-and extends indefinitely. Consumption landing exactly on a boundary is
-billed entirely within the lower slab. `app/engines/tariff/validation.py`
-rejects (raises `ValueError`, never silently "fixes") slabs that are
-empty, negative, overlapping, non-contiguous, don't start at 0, or have
-more than one unlimited slab — a malformed tariff dataset must never
-silently produce a wrong number.
-
-### Tariff version selection (`app/engines/tariff/version_selection.py`)
-
-A state/DISCOM/category can have multiple `tariff_version` schedules on
-file over time (superseded orders kept for reproducibility). Exactly one
-is selected for the requested `calculation_date`: the version whose
-`[effective_from, effective_to]` range covers that date, preferring the
-latest `effective_from`, with ties broken by the version string itself —
-deterministic, never random, never dependent on database row order.
-
-### Charge components
-
-Each component is reported as `included` (with an amount), `not_included`
-(the tariff data itself has no such charge), or `not_calculated` (this app
-doesn't collect the input needed) — never fabricated as zero:
-
-| Component | When `included` | When `not_calculated` |
-| --- | --- | --- |
-| `energy` | Always (the slab calculation) | — |
-| `fixed` | `fixed_charge_inr` is configured on the tariff | — |
-| `wheeling` | `wheeling_charge_inr_per_kwh` is configured | — |
-| `demand` | — | Always — requires sanctioned load/kVA, which this app's assessment does not collect |
-| `tod` (time-of-day) | — | Always — requires interval consumption data, which this app's assessment does not collect |
-
-`estimated_monthly_bill_inr` sums only the `included` components;
-`is_partial_estimate` and `excluded_components` make it explicit whenever
-`demand`/`tod` were skipped (i.e. always, today).
-
-<a id="tariff-financial-boundary"></a>
-
-### Financial boundary
-
-The response contains no subsidy, solar cost, saving, payback, ROI, or
-recommendation field. `app.engines.tariff.calculate_bill_for_grid_consumption`
-is written to be reusable by a future engine that needs a grid-only bill
-estimate (e.g. comparing grid cost against a solar-offset scenario)
-without recomputing tariff resolution — but Phase 5 itself never performs
-that comparison.
-
-### API
-
-`POST /api/v1/tariffs/calculate` — `{"assessment_id": "...", "calculation_date": "YYYY-MM-DD"}`
-(date optional, defaults to today). Response `status` is one of:
-
-- `ok` — a tariff was found and a bill was calculated (possibly partial —
-  see `is_partial_estimate`)
-- `insufficient_data` — no coordinates, or the location couldn't be
-  resolved to an Indian state/UT
-- `discom_ambiguous` — multiple DISCOMs match and no state-level fallback
-  tariff is configured
-- `tariff_not_configured` — the state/category/date is understood, but no
-  verified tariff data exists for it
-
-`GET /api/v1/tariffs?state=...&union_territory=...&consumer_category=...&discom_id=...`
-— a filtered raw-slab lookup for browsing/debugging what's configured.
-
-### India tariff data coverage (verified in Phase 6.7)
-
-Per this project's standing rule — **real data > no data > fake data** — a
-tariff is only seeded once its slabs, rates and charges were read from a
-primary official document (state regulator order or DISCOM publication)
-and the exact page/table is recorded. Verified and seeded (residential
-only): **Tamil Nadu** (TNPDCL), **Andhra Pradesh** (all three DISCOMs,
-FY 2026-27), **Karnataka** (all ESCOMs), **Rajasthan** (all three DISCOMs)
-and **Maharashtra** (MSEDCL — verified, but Maharashtra
-locations resolve as DISCOM-`ambiguous` because Mumbai has other licensees,
-so it is reported as blocked, never guessed). Kerala was verified but is
-**not seeded**: its non-telescopic billing above 250 units/month cannot be
-represented by the engine. Every other State/UT is unconfigured and answers
-`tariff_not_configured`.
-
-Every row carries `source_name`, `source_url`, `source_document`,
-`source_order_number`, `source_order_date`, `source_page`, `source_table`,
-`source_section`, `source_excerpt`, `verification_status`,
-`verification_notes` and `last_verified`; the dashboard shows them under
-"Verified against an official source". Only `verified` + `active` rows are
-ever used for a bill. Fixed charges record what they are charged *per*
-(`fixed_charge_basis`): a per-kW charge is never turned into a flat monthly
-amount. See [`docs/data-verification/`](docs/data-verification/) for the
-research log, coverage report and the generated data-quality report, and
-[`backend/app/data/tariffs/india/README.md`](backend/app/data/tariffs/india/README.md)
-for the file format.
-
-Seeding: `python -m scripts.seed_all [--dry-run] [--expect-database NAME]`
-(from `backend/`) validates every data file, then upserts DISCOMs, tariffs
-and incentives in one transaction. It is idempotent and never deletes a row.
-On Render the container runs it on start when `RUN_DATA_SEED=true`.
-
-### Reproducibility
-
-Given the same input, candidate rows, and `calculation_date`, the engine
-is a pure function and returns identical charges and totals — verified
-directly (`test_tariff_engine.py`) and live against the real API. Every
-calculation is also recorded to `TariffCalculationSnapshot`
-(`ON DELETE CASCADE` on the owning assessment, same pattern as
-`SolarCalculationSnapshot`).
+**Coverage:** see [Data Coverage & Provenance](#data-coverage--provenance). Only `verified` and `active` rows are ever used; per-kW fixed charges are never turned into a flat amount. Research log: [`docs/data-verification/`](docs/data-verification/); file format: [`backend/app/data/tariffs/india/README.md`](backend/app/data/tariffs/india/README.md). Every calculation is recorded in `TariffCalculationSnapshot`.
 
 ## Incentive Engine (Phase 6)
 
-**Phase 6 evaluates which renewable-energy incentive programmes an
-assessment may be eligible for, and calculates their amount when the
-programme's own documented formula allows it from data this app actually
-collects. It does NOT calculate final installation cost, final savings,
-payback, ROI, or a wind/hybrid/battery recommendation** — see
-[Financial boundary](#incentive-financial-boundary) below.
+Evaluates which incentive programmes a system may be eligible for and calculates the amount when the programme's own documented formula allows it. **It computes no installation cost, savings, payback or ROI.**
 
 ```
-Assessment (building.building_type, energy.monthly_consumption_kwh, constraints)
-        v
-Phase 3 LocationService.get_profile() -> IndiaLocationContext
-        (state/UT, DISCOM, discom_status — never re-derived)
-        v
-BuildingType -> TariffConsumerCategory (Phase 5's mapping, reused — never a second one)
-        v
-IncentiveProgramRepository (technology + state/UT/DISCOM candidates,
-                             NOT pre-filtered by category — see below)
-        v
-Incentive Engine (app/engines/incentive/ — pure functions, no FastAPI/DB/API import)
-   - group candidate rows into distinct schemes (scheme_name + level + technology)
-   - select the scheme_version covering the calculation date
-   - evaluate eligibility (verification status, technology, category, capacity, rules)
-   - calculate the amount when the documented formula and available data allow it
-   - flag stacking/combinability uncertainty across simultaneously-eligible programmes
-        v
-Every candidate programme's eligibility status — eligible ones never hidden,
-ineligible/unverified/uncertain ones never hidden either
+Assessment → location profile → BuildingType → TariffConsumerCategory (same mapping as the tariff engine)
+  → IncentiveProgramRepository (technology + central/state/UT/DISCOM candidates; NOT pre-filtered by category)
+  → Incentive Engine (app/engines/incentive/): group into schemes → select version by date
+       → eligibility → amount → stacking flags
+  → every candidate programme's status (ineligible and unverified ones are never hidden)
 ```
 
-`app/engines/incentive/` never imports FastAPI, SQLAlchemy, or an HTTP
-client — the same rule as `app/engines/tariff/` and `app/engines/solar/`.
-`IncentiveEvaluationService` (`app/services/incentive_evaluation_service.py`)
-is the only bridge: it loads the Assessment, calls the existing Phase 3
-`LocationService.get_profile()` (DISCOM resolution is never re-run), maps
-`BuildingType` to `TariffConsumerCategory` via
-`app.engines.tariff.consumer_category_mapping` (imported directly — Phase 6
-has no category-mapping file of its own), queries candidate programme rows,
-and hands the engine a plain list of programme DTOs.
+- **Scoping:** technology and `consumer_category` must match exactly (or the programme is genuinely category-agnostic); a residential scheme is never applied to a commercial consumer. Regional variants (PM Surya Ghar's special-category rows) are separate rows chosen by `eligibility_rules`, so exactly one applies (`scope.py`). DISCOM-level schemes follow the same "never guess" rule.
+- **Versioning:** exactly one `scheme_version` is selected for the calculation date; otherwise the scheme is reported `scheme_expired` or `scheme_not_active` — never silently dropped.
+- **Eligibility** (`eligibility.py`), in order: `verification_status` (only `verified`), `active`, technology, category, `min_system_size_kw`, documented required fields (a field the app does not collect is always missing → `insufficient_information`), then the amount. A system **larger** than `max_system_size_kw` is still eligible; the cap only limits the capacity counted (PM Surya Ghar's CFA caps at 3 kW).
+- **Calculation** (`calculator.py`, `Decimal`): `fixed_amount`, `per_kw`, `slab_based` (kW brackets), `percentage` (needs a real cost basis — otherwise `insufficient_information`), `benchmark_cost_based`.
+- **Stacking** (`stacking.py`): eligible programmes are **never summed**; each stays a separate line. They are unflagged only if both sides' `stacking_rules` confirm combinability; otherwise `combination_requires_verification` or `mutually_exclusive_with_other_programme`.
+- **Financial note:** the Incentive Engine itself uses no installation cost (`budget_inr` is the customer's own budget, not a quotation). The Financial Analysis Engine subtracts its verified result from the MNRE benchmark cost.
 
-The repository deliberately does **not** filter by consumer category (only
-by technology and state/UT/central scope): a programme that doesn't match
-the assessment's category still needs to come back so the engine can
-report it `not_eligible` — filtering it out at the query level would hide
-it entirely, which section 25's "never hide an ineligible or uncertain
-programme" rule forbids.
+`POST /api/v1/incentives/evaluate` — the frontend submits only the assessment and system; the backend always selects the trusted, verified programme data. Programme statuses: `eligible`, `not_eligible`, `insufficient_information`, `scheme_expired`, `scheme_not_active`, `scheme_not_verified`, `discom_ambiguous`, `discom_not_identified`. `GET /api/v1/incentives` browses the configured programmes. Every evaluation is recorded in `IncentiveEvaluationSnapshot`.
 
-### Consumer category & DISCOM scoping
-
-Identical rules to Phase 5, applied here too: **never** assume a solar
-incentive applies to wind/battery, or a residential scheme applies to a
-commercial consumer — technology and `consumer_category` must match
-exactly (or the programme's category is `null`, meaning genuinely
-category-agnostic). DISCOM scoping mirrors Phase 5's:
-
-- `discom_status: "identified"` — prefers that exact DISCOM's programmes;
-  falls back to a state-level programme only if that DISCOM has none.
-- `discom_status: "ambiguous"` or `"not_identified"` — a DISCOM-specific
-  programme is never guessed. Each blocked DISCOM-level scheme is still
-  reported explicitly, as `discom_ambiguous` or `discom_not_identified` —
-  never silently omitted.
-
-### Scheme versioning (`app/engines/incentive/version_selection.py`)
-
-A distinct scheme (identified by `scheme_name` + `level` + `technology`)
-can have several `scheme_version` rows on file over time — e.g. PM Surya
-Ghar's guidelines have been amended more than once since 2024. Exactly one
-version is selected for the requested calculation date: the version whose
-`[effective_from, effective_to]` range covers it, preferring the latest
-`effective_from`, ties broken by the version string — deterministic, never
-random. If no version covers the date, the scheme is reported
-`scheme_expired` (every version is in the past) or `scheme_not_active`
-(every version is in the future) — never silently dropped.
-
-### Eligibility (`app/engines/incentive/eligibility.py`)
-
-Checks, per candidate scheme version, in order: `verification_status`
-(only `verified` proceeds — anything else is `scheme_not_verified`),
-`active`, technology match, `consumer_category` match, `min_system_size_kw`
-(a smaller system is genuinely `not_eligible`), documented
-`eligibility_rules.requires_fields` (any field this app doesn't collect at
-all — e.g. income level, ownership status, sanctioned load/kVA — always
-resolves as missing, never invented, giving `insufficient_information`
-with the exact field names), and finally the amount calculation itself. A
-system **larger** than `max_system_size_kw` is still eligible — the cap
-just limits how much capacity counts toward the calculation (e.g. PM Surya
-Ghar's CFA caps at 3 kW even for a bigger system), matching how the real
-schemes actually work.
-
-### Calculation (`app/engines/incentive/calculator.py`)
-
-Decimal throughout — never float. Supports:
-
-| `subsidy_type` | Formula | Needs |
-| --- | --- | --- |
-| `fixed_amount` | A flat amount | `subsidy_value` |
-| `per_kw` | Rate × eligible capacity | `subsidy_value` |
-| `slab_based` | Telescoping capacity brackets (same algorithm shape as Phase 5's consumption slabs, applied to kW instead of kWh) | `calculation_rules.slabs` |
-| `percentage` | Percentage × eligible installation cost | `percentage_value` **and** a real cost basis |
-| `benchmark_cost_based` | Percentage × a published benchmark cost per kW | `calculation_rules.benchmark_cost_per_kw_inr` + `eligible_percentage` |
-
-<a id="incentive-financial-boundary"></a>
-
-### Financial boundary
-
-**This app collects no verified installation cost anywhere** —
-`BuildingConstraints.budget_inr` is the user's own aspirational budget, not
-a vendor quotation. `percentage`-type incentives are therefore always
-`insufficient_information` today, honestly, rather than computed against
-an invented cost — `fixed_amount`, `per_kw`, and `slab_based` (which only
-need capacity) can be calculated in full. The response never contains a
-final installation cost, savings, payback, or ROI figure.
-
-### Stacking (`app/engines/incentive/stacking.py`)
-
-Multiple eligible programmes are **never summed into one total** — each
-stays its own line item in the response. Two simultaneously-eligible
-programmes are only left unflagged if **both** sides' `stacking_rules`
-explicitly confirm combinability; an explicit
-`mutually_exclusive_with_levels` entry on either side flags both as
-`mutually_exclusive_with_other_programme`; anything else (including
-silence on one or both sides) flags both `combination_requires_verification`
-— absence of a documented rule is never treated as permission to combine.
-
-### API
-
-`POST /api/v1/incentives/evaluate` —
-`{"assessment_id": "...", "technology": "solar", "proposed_capacity_kw": 3, "calculation_date": "YYYY-MM-DD"}`
-(date optional, defaults to today). The frontend only ever submits
-assessment/context — the backend always selects the trusted, verified
-programme data itself; the frontend can never submit a subsidy rate or
-amount and get it echoed back as a calculation. Top-level `status` is
-`ok` or `insufficient_data` (no coordinates, or the location couldn't be
-resolved to an Indian state/UT); each entry in `programmes` carries its
-own status (`eligible` | `not_eligible` | `insufficient_information` |
-`scheme_expired` | `scheme_not_active` | `scheme_not_verified` |
-`discom_ambiguous` | `discom_not_identified`) — ineligible and unverified
-programmes are always included, never hidden.
-
-`GET /api/v1/incentives?state=...&union_territory=...&discom_id=...&technology=...&consumer_category=...&level=...`
-— a filtered raw-programme lookup for browsing/debugging what's
-configured.
-
-### India incentive data coverage (verified in Phase 6.7)
-
-A scheme is only seeded once its rates, capacity limits and conditions
-were read from a primary official document. Verified and seeded: **PM
-Surya Ghar: Muft Bijli Yojana** — Central Financial Assistance to
-residential consumers (MNRE guideline OM No. 318/17/2024-GCRT): Rs 30,000
-per kW for the first 2 kW and Rs 18,000 for the third kW, nothing beyond
-3 kW (max Rs 78,000), and Rs 33,000 / Rs 19,800 for the special-category
-States/UTs (a separate row, chosen by region via `eligibility_rules`, see
-`app.engines.incentive.scope`). It is residential-only, so a college, shop
-or office is reported `not_eligible`. Valid until the guideline's
-implementation end, 2027-03-31.
-
-**State and DISCOM incentives: none verified.** The five priority states
-were checked in official pages and no state amount was found; nothing is
-seeded for them. See [`docs/data-verification/`](docs/data-verification/)
-and [`backend/app/data/incentives/india/README.md`](backend/app/data/incentives/india/README.md).
-
-### Reproducibility
-
-Given the same input and candidate rows, the engine is a pure function and
-returns identical eligibility results and amounts — verified directly
-(`test_incentive_engine.py`) and live against the real API. Every
-evaluation is recorded to `IncentiveEvaluationSnapshot` (`ON DELETE
-CASCADE` on the owning assessment, same pattern as `SolarCalculationSnapshot`
-and `TariffCalculationSnapshot`).
+**Coverage:** **PM Surya Ghar: Muft Bijli Yojana** — Central Financial Assistance for residential consumers (MNRE guideline OM No. 318/17/2024-GCRT): ₹30,000/kW for the first 2 kW and ₹18,000 for the third kW, nothing beyond 3 kW (maximum ₹78,000); ₹33,000 / ₹19,800 in the special-category States/UTs. Residential only (a college, shop or office is `not_eligible`), valid to the guideline's implementation end, 2027-03-31. No state or DISCOM incentive is verified. See [`docs/data-verification/`](docs/data-verification/) and [`backend/app/data/incentives/india/README.md`](backend/app/data/incentives/india/README.md).
 
 ## Wind Engine (Phase 7)
 
-`POST /api/v1/wind/calculate` estimates annual generation for candidate
-0.5 / 1 / 2 / 3 / 5 / 10 kW turbines from the Phase 3 wind resource
-(NASA POWER 2001-2020 climatology, m/s, 10 m reading used, 50 m shown only),
-a generic reference power curve and a Rayleigh speed distribution. Assumptions
-are versioned (`wind-assumptions-2026.1`); results are snapshotted to
-`wind_calculation_snapshots`. No wind resource -> `wind_resource_unavailable`,
-never a default speed. **Technical screening only — structural/site approval is
-required. This is a preliminary software screening model, not a certified wind
-resource assessment or structural/site engineering assessment.** No cost,
-subsidy, savings or payback. Full method, curve, thresholds and limitations:
-[docs/wind-engine.md](docs/wind-engine.md).
+`POST /api/v1/wind/calculate` estimates annual generation for candidate 0.5 / 1 / 2 / 3 / 5 / 10 kW turbines from the wind resource (NASA POWER climatology, m/s; the 10 m reading is used, 50 m is shown only), a generic reference power curve and a Rayleigh speed distribution. Each candidate is `technically_feasible`, `marginal` or `insufficient_resource` by net capacity factor. Assumptions are versioned (`wind-assumptions-2026.1`) and results are snapshotted to `wind_calculation_snapshots`. With no wind resource the result is `wind_resource_unavailable` — never a default speed.
 
-## SHREA AI (branding, AI Advisor, monitoring UI)
+**Technical screening only — structural and site approval are required. This is a preliminary software screening model, not a certified wind-resource assessment or structural/site engineering assessment.** It computes no cost, subsidy, savings or payback. Method, curve, thresholds and limitations: [`docs/wind-engine.md`](docs/wind-engine.md).
 
-The user-facing brand is **SHREA AI** (the repository keeps its descriptive name).
+## Security
 
-**AI Advisor (Phase 8).** `POST /api/v1/advisor/chat` answers questions about one assessment.
-The backend builds the context itself from the existing Solar, Wind, Tariff and Incentive
-services and sends it, with a fixed system prompt, to NVIDIA NIM (Nemotron). The API key
-(`NVIDIA_API_KEY`) is backend-only; without it the chat says "SHREA AI isn't connected yet".
-**SHREA AI explains application results but does not replace the deterministic
-renewable-energy calculation engines**, and it never invents tariffs, incentives, wind or solar
-values, costs, savings or live readings. Details, limits and cost controls:
-[docs/ai-advisor.md](docs/ai-advisor.md).
+- **AI key isolation:** `NVIDIA_API_KEY` is read from the backend environment only — never in the frontend, GitHub Pages build, a prompt, a response or a log; a reply containing it is rejected.
+- **Input validation:** every request is validated by Pydantic (types, ranges, enums) before it reaches the database.
+- **SQL:** SQLAlchemy's query builder throughout — no raw or interpolated SQL.
+- **Errors:** unhandled exceptions return a generic `{"detail": "Internal server error"}`; details stay in server logs.
+- **CORS:** allow-list from `CORS_ALLOWED_ORIGINS`.
+- **Advisor:** rate limits, assessment isolation, no provider body/header leakage, logs without message text, untrusted-input rules in the prompt, and a frontend renderer that shows replies as text (only `**bold**`), never HTML.
+- **Credentials** come from environment variables (`.env` is git-ignored); the map uses OpenStreetMap tiles directly with no key.
+- **Known gap:** there is **no authentication** yet (`services/prototype_user.py` attributes every request to one prototype user; it must be replaced by real auth).
 
-**Bill-first input (Phase 10.5).** Customers enter their average monthly electricity bill (rupees), not kWh. The kWh the
-engines need is an estimate derived by inverting the verified tariff with the existing Tariff Engine (never a bill / rate
-division), or the optional units the customer enters. Estimates are labelled, and unavailable when no verified tariff exists.
-See [docs/bill-first-assessment.md](docs/bill-first-assessment.md).
+## Documentation
 
-**Recommendation (Phase 10).** `GET /api/v1/recommendations/{id}` picks a technology and size with deterministic rules over the
-existing engines' outputs (smallest technically feasible solar size that reaches the 100% annual coverage target; wind only when
-its screening is feasible; no hybrid or battery; cost, savings and payback come from the Phase 11 financial analysis). The dashboard shows it, and SHREA AI explains it without
-choosing anything itself. See [docs/ai-advisor.md](docs/ai-advisor.md).
+| Document | Contents |
+| --- | --- |
+| [`docs/ai-advisor.md`](docs/ai-advisor.md) | SHREA AI, prompt rules, cost controls, voice, recommendation engine |
+| [`docs/bill-first-assessment.md`](docs/bill-first-assessment.md) | Bill-first input and the bill → kWh estimate |
+| [`docs/financial-analysis.md`](docs/financial-analysis.md) | Cost source, methodology, incentive handling, savings, payback, limitations |
+| [`docs/wind-engine.md`](docs/wind-engine.md) | Wind screening method and limitations |
+| [`docs/data-verification/`](docs/data-verification/) | Research log, coverage report and data-quality report for tariffs and incentives |
+| [`backend/README.md`](backend/README.md), [`frontend/README.md`](frontend/README.md) | Setup notes for each side |
+| [`backend/app/data/tariffs/india/README.md`](backend/app/data/tariffs/india/README.md), [`backend/app/data/incentives/india/README.md`](backend/app/data/incentives/india/README.md) | Data file formats and how to add a state or scheme |
 
-**Financial analysis (Phase 11).** `GET /api/v1/financial-analysis/{id}` returns an estimated gross cost (the official MNRE benchmark for the
-exact recommended capacity), the verified incentive, net investment, savings (the Tariff Engine applied month by month to the solar offset)
-and simple payback. It is deterministic, never calls an AI, and leaves anything unsupported unavailable. Export income and financing are not
-modelled. See [docs/financial-analysis.md](docs/financial-analysis.md).
-
-**Voice (Phase 9).** The chat has an opt-in microphone: speech is turned into text for the same advisor
-request, and replies are spoken back with the browser's speech synthesis. It is an input/output layer only;
-see the voice section of the same document. Frontend logic tests: `npm test` in `frontend/`.
-
-**Monitoring.** `/monitoring` and the homepage "Monitor Your Existing Renewable System" section
-have no device integration or telemetry store: they show an honest "No monitoring system
-connected" state, and the homepage dashboard is an explicitly labelled **UI Preview** with
-example values.
-
-## Security Notes (Phases 2-6)
-
-- No authentication yet. `app/services/prototype_user.py` centralizes a
-  single well-known prototype user id so no user id is hard-coded elsewhere
-  in the app — this must be replaced by real auth in a future phase.
-- All input is validated by Pydantic (types, ranges, enum membership) before
-  it reaches the database.
-- SQLAlchemy's query builder is used throughout — no raw/interpolated SQL.
-- Unhandled exceptions return a generic `{"detail": "Internal server error"}`
-  (see the exception handler in `app/main.py`) instead of leaking tracebacks.
-- All credentials come from environment variables (`.env`, gitignored) —
-  never hard-coded.
-- No provider API key is committed or required by default (Phase 3's
-  providers are all keyless). If you configure a commercial provider that
-  needs one, it goes in `.env` like every other secret here.
-- The map (`components/location/LocationMap.tsx`) uses OpenStreetMap tiles
-  directly — no API key, no token exposed to the client.
-
-## Current Development Phase
-
-**CURRENT PHASE: Phase 7 — India-Based Wind Engine, complete** (see
-[Wind Engine (Phase 7)](#wind-engine-phase-7); the Phase 6 description below is
-unchanged, except that wind *technical screening* now exists — no
-hybrid/battery, recommendation, or financial engine yet)
-
-**Phase 6 — India Renewable Energy Incentive Engine**
-
-Phase 1 established the monorepo, frontend UI, and backend foundation.
-Phase 2 turned the assessment UI into a real backend-backed system with
-PostgreSQL persistence. Phase 3 added a provider-agnostic location
-intelligence layer: real geocoding, solar/wind/weather/elevation data from
-free keyless providers, a map, and resource cards on both the standalone
-Location page and the assessment Dashboard. An India-based architecture
-update between Phase 3 and Phase 4 added India location resolution
-(state/UT/district/city/DISCOM — see
-[India location resolution](#india-location-resolution)) and the
-tariff/incentive schema (see
-[India-Based Tariff & Incentive Architecture](#india-based-tariff--incentive-architecture)).
-Phase 4 estimated technical solar generation and system feasibility for an
-assessment (see [Solar Engine (Phase 4)](#solar-engine-phase-4)). Phase 5
-estimated a baseline grid-electricity bill from an assessment's consumption
-and location/DISCOM data (see
-[Electricity Tariff Engine (Phase 5)](#electricity-tariff-engine-phase-5)).
-
-**Phase 6 evaluates which renewable-energy incentive programmes an
-assessment may be eligible for, and calculates the amount when a
-programme's documented formula and this app's own data allow it (see
-[Incentive Engine (Phase 6)](#incentive-engine-phase-6)). It does NOT
-calculate final installation cost, final savings, payback, or ROI** — and,
-per this project's own investigation record, **no central or state
-incentive scheme has yet been confidently verified from an official
-source**, so every location currently reports an empty, honest
-`programmes` list in practice (the architecture, eligibility engine,
-calculation engine, and stacking rules are complete and tested; the data
-is honestly absent — see
-[`backend/app/data/incentives/india/README.md`](backend/app/data/incentives/india/README.md)).
-No wind/hybrid/battery calculation, recommendation engine, financial
-engine, AI, voice, or ML is implemented yet.
-
-## Future Roadmap
-
-- Phase 1 — Foundation
-- Phase 2 — User Assessment + Database
-- Phase 3 — Location Intelligence
-- *(India-based architecture update — DISCOM/tariff/incentive data model)*
-- Phase 4 — India-Based Solar Engine ✅
-- Phase 5 — India Electricity Tariff Engine ✅
-- Phase 6 — India Renewable Energy Incentive Engine ✅
-- Phase 7 — India-Based Wind Engine ✅
-- Phase 8 — Hybrid + Battery
-- Phase 9 — Recommendation Engine
-- Phase 10 — Financial Engine
-- Phase 11 — AI Advisor
-- Phase 12 — Voice Advisor
-- Phase 13 — Electricity Bill Intelligence
-- Phase 14 — ML Prediction
-- Phase 15 — Reports
-- Phase 16 — Testing + Deployment
+To add a verified state or scheme, follow the data READMEs above: read the value from a primary official document, record its page/table, keep one version per order, and never overwrite history.
