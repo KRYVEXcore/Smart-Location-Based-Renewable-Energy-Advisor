@@ -32,3 +32,98 @@ body {
     animation: none;
   }
 }
+
+/*
+ * Dark mode. The UI is styled with Tailwind's default colour scales, so instead of adding a `dark:`
+ * variant to every class, <html class="dark"> re-points those scales (and white) to dark values.
+ * Shades that are also used as solid button backgrounds (emerald 600/700/800, slate 900) keep their
+ * values and only their text uses are overridden below.
+ */
+html.dark {
+  color-scheme: dark;
+  --color-white: #0b1324;
+  --color-slate-50: #0f1a2e;
+  --color-slate-100: #16223a;
+  --color-slate-200: #263450;
+  --color-slate-300: #5b6a86;
+  --color-slate-400: #7c8aa5;
+  --color-slate-500: #98a6bd;
+  --color-slate-600: #b5c0d3;
+  --color-slate-700: #cdd6e4;
+  --color-slate-800: #e2e8f0;
+  --color-slate-900: #f1f5f9;
+  --color-emerald-50: #0c2a25;
+  --color-emerald-100: #0f3a31;
+  --color-emerald-200: #14503f;
+  --color-emerald-300: #1f7a5c;
+  --color-emerald-900: #d1fae5;
+  --color-amber-50: #2a1f0a;
+  --color-amber-100: #3a2a0c;
+  --color-amber-300: #7a5a12;
+  --color-amber-600: #fbbf24;
+  --color-amber-700: #fcd34d;
+  --color-amber-800: #fde68a;
+  --color-red-50: #2a1214;
+  --color-red-300: #7f2a2f;
+  --color-red-600: #f87171;
+  --color-red-700: #fca5a5;
+}
+
+html.dark body {
+  background-color: #060b16;
+  color: #f1f5f9;
+}
+
+html.dark .text-white {
+  color: #fff;
+}
+
+html.dark .bg-slate-900 {
+  background-color: #334155;
+  --color-slate-300: #cbd5e1; /* labels inside these pills were light-on-dark in the light theme */
+}
+
+html.dark .shadow-slate-900\/20 {
+  --tw-shadow-color: rgb(0 0 0 / 0.45);
+}
+
+html.dark .text-emerald-600 {
+  color: #34d399;
+}
+
+html.dark .text-emerald-700,
+html.dark .hover\:text-emerald-700:hover {
+  color: #6ee7b7;
+}
+
+html.dark .text-emerald-800 {
+  color: #a7f3d0;
+}
+
+/* The map tiles are always light, so they are dimmed and inverted to sit in the dark UI. */
+html.dark .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+}
+
+/* The footer is dark in both themes, so it keeps the original scales. */
+html.dark footer {
+  --color-white: #fff;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-800: #1e293b;
+}
+
+/* Colours fade only while switching (the class is added for ~350 ms by useTheme), so no other transition is touched. */
+@media (prefers-reduced-motion: no-preference) {
+  .theme-transition,
+  .theme-transition *,
+  .theme-transition *::before,
+  .theme-transition *::after {
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease,
+      border-color 0.3s ease,
+      fill 0.3s ease,
+      stroke 0.3s ease !important;
+  }
+}

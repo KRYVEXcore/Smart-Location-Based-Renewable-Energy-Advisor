@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Menu, Mic, X, Zap } from 'lucide-react'
+import { Menu, Mic, Moon, Sun, X, Zap } from 'lucide-react'
+import { useTheme } from '../../hooks/useTheme'
 import { cn } from '../../utils/cn'
 
 const NAV_LINKS = [
@@ -18,6 +19,7 @@ interface NavbarProps {
 
 export function Navbar({ onOpenAdvisor }: NavbarProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const { theme, toggleTheme } = useTheme()
 
   const linkClasses = ({ isActive }: { isActive: boolean }) =>
     cn(
@@ -46,6 +48,15 @@ export function Navbar({ onOpenAdvisor }: NavbarProps) {
         </ul>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-700 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+          >
+            {theme === 'dark' ? <Sun className="h-5 w-5" aria-hidden="true" /> : <Moon className="h-5 w-5" aria-hidden="true" />}
+          </button>
           <button
             type="button"
             onClick={onOpenAdvisor}
