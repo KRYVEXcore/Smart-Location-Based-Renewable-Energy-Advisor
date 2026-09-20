@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "dataset": "india-rooftop-solar-cost-benchmarks",
+  "notes": "Only figures read from a primary official document are listed. This is a BENCHMARK cost (the basis MNRE uses to compute central financial assistance), not a market quote or a price range: real quotes vary. No other cost source was found that is defensible enough to seed.",
+  "records": [
+    {
+      "id": "MNRE-PMSG-BENCHMARK-GENERAL-2024-02-13",
+      "technology": "solar_rooftop",
+      "consumer_categories": ["residential"],
+      "cost_kind": "benchmark",
+      "name": "MNRE benchmark cost - grid-connected residential rooftop solar (general category States/UTs)",
+      "tiers": [
+        { "up_to_kw": 2, "inr_per_kw": 50000 },
+        { "above_kw": 2, "inr_per_kw": 45000 }
+      ],
+      "geographic_scope": { "kind": "all_except", "states": ["Uttarakhand", "Himachal Pradesh", "Jammu and Kashmir", "Ladakh", "Arunachal Pradesh", "Assam", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Sikkim", "Tripura", "Andaman and Nicobar Islands", "Lakshadweep"] },
+      "source_name": "Ministry of New and Renewable Energy (MNRE), Government of India",
+      "source_document": "Guidelines for PM-Surya Ghar: Muft Bijli Yojana - Central Financial Assistance to Residential Consumers",
+      "source_url": "https://cdnbbsr.s3waas.gov.in/s3716e1b8c6cd17b771da77391355749f3/uploads/2025/07/202507081690964295.pdf",
+      "source_page": "8",
+      "source_section": "clause g) Benchmark Cost",
+      "source_excerpt": "The benchmark cost for 1 kW system is fixed at Rs 50,000/kW for the first 2 kW of RTS capacity and Rs 45,000 for the additional kW with effect from 13th February, 2024.",
+      "effective_from": "2024-02-13",
+      "document_date": null,
+      "capacity_basis": "Per kW: Rs 50,000 for the first 2 kW and Rs 45,000 for each additional kW. The guidelines define central financial assistance only up to 3 kW; for larger systems the same per-kW rates are applied here and flagged as an extension.",
+      "inclusions": "Not stated in the guideline clause.",
+      "exclusions": "Not stated in the guideline clause. Site-specific extra work is invoiced separately by the vendor (guidelines, page 25).",
+      "gst_treatment": "Not stated in the guideline clause; GST is mentioned only for separately invoiced extra work.",
+      "verification_status": "verified",
+      "last_verified": "2026-09-20",
+      "verification_notes": "Read from the text layer of the guidelines PDF (page 8, clause g). The guidelines say the benchmark will be revised at the mid-term review (clause j)."
+    },
+    {
+      "id": "MNRE-PMSG-BENCHMARK-SPECIAL-2024-02-13",
+      "technology": "solar_rooftop",
+      "consumer_categories": ["residential"],
+      "cost_kind": "benchmark",
+      "name": "MNRE benchmark cost - grid-connected residential rooftop solar (special category States/UTs)",
+      "tiers": [
+        { "up_to_kw": 2, "inr_per_kw": 55000 },
+        { "above_kw": 2, "inr_per_kw": 49500 }
+      ],
+      "geographic_scope": { "kind": "only", "states": ["Uttarakhand", "Himachal Pradesh", "Jammu and Kashmir", "Ladakh", "Arunachal Pradesh", "Assam", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Sikkim", "Tripura", "Andaman and Nicobar Islands", "Lakshadweep"] },
+      "source_name": "Ministry of New and Renewable Energy (MNRE), Government of India",
+      "source_document": "Guidelines for PM-Surya Ghar: Muft Bijli Yojana - Central Financial Assistance to Residential Consumers",
+      "source_url": "https://cdnbbsr.s3waas.gov.in/s3716e1b8c6cd17b771da77391355749f3/uploads/2025/07/202507081690964295.pdf",
+      "source_page": "8",
+      "source_section": "clause g) Benchmark Cost",
+      "source_excerpt": "The benchmark for special category States (States/UTs of Uttarakhand, Himachal Pradesh, J&K, Ladakh, States in the North East including Sikkim, UTs of A&N and Lakshadweep) will be Rs 55,000 for first 2 kW of RTS capacity and Rs 49,500 for the additional kW of RTS capacity.",
+      "effective_from": "2024-02-13",
+      "document_date": null,
+      "capacity_basis": "Per kW: Rs 55,000 for the first 2 kW and Rs 49,500 for each additional kW (same 3 kW subsidy-cap caveat as the general record).",
+      "inclusions": "Not stated in the guideline clause.",
+      "exclusions": "Not stated in the guideline clause. Site-specific extra work is invoiced separately by the vendor (guidelines, page 25).",
+      "gst_treatment": "Not stated in the guideline clause; GST is mentioned only for separately invoiced extra work.",
+      "verification_status": "verified",
+      "last_verified": "2026-09-20",
+      "verification_notes": "Read from the text layer of the guidelines PDF (page 8, clause g)."
+    }
+  ]
+}

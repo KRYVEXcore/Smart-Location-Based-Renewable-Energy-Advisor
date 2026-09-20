@@ -1,4 +1,5 @@
 import type { AssessmentResponse } from '../types/assessmentApi.ts'
+import type { FinancialAnalysisResult, Range } from '../types/financial.ts'
 import type { RecommendationResult } from '../types/recommendation.ts'
 
 // Display logic for the customer report. Pure and DOM-free so it can be tested. It only
@@ -62,22 +63,34 @@ export function energyView(energy: AssessmentResponse['energy']): EnergyView {
   }
 }
 
-type CostContext = RecommendationResult['cost_context']
-
-const range = (value: { low: number; high: number } | null | undefined) =>
-  value ? `${inr(value.low)} – ${inr(value.high)}` : NOT_AVAILABLE
+// A range is shown as a range; a single verified figure (low == high) is shown once, never as a made-up span.
+const rupeeRange = (value: Range | null | undefined) =>
+  !value ? NOT_AVAILABLE : value.low === value.high ? inr(value.low) : `${inr(value.low)} – ${inr(value.high)}`
 const amount = (value: number | null | undefined, suffix = '') => (value == null ? NOT_AVAILABLE : `${inr(value)}${suffix}`)
+const yearsRange = (value: Range | null | undefined) =>
+  !value
+    ? NOT_AVAILABLE
+    : value.low === value.high
+      ? `${value.low.toFixed(1)} years`
+      : `${value.low.toFixed(1)}–${value.high.toFixed(1)} years`
 
-// Real financial values, only when a verified analysis exists. A single missing value reads "Not available".
-export function financialLabels(cost: CostContext) {
-  const available = cost.status === 'available'
+// The financial fields the recommendation's cost_context and the financial-analysis result share.
+export interface FinancialFields {
+  installed_cost_range_inr?: Range | null
+  net_investment_range_inr?: Range | null
+  annual_savings_inr?: number | null
+  monthly_savings_inr?: number | null
+  simple_payback_years_range?: Range | null
+}
+
+// Backend values only. A single missing value reads "Not available"; nothing is calculated here.
+export function financialLabels(fields: FinancialFields) {
   return {
-    installedCost: available ? range(cost.installed_cost_range_inr) : NOT_AVAILABLE,
-    netInvestment: available ? range(cost.net_investment_range_inr) : NOT_AVAILABLE,
-    annualSavings: available ? amount(cost.annual_savings_inr, '/year') : NOT_AVAILABLE,
-    monthlySavings: available ? amount(cost.monthly_savings_inr, '/month') : NOT_AVAILABLE,
-    payback:
-      available && cost.simple_payback_years != null ? `${cost.simple_payback_years.toFixed(1)} years` : NOT_AVAILABLE,
+    installedCost: rupeeRange(fields.installed_cost_range_inr),
+    netInvestment: rupeeRange(fields.net_investment_range_inr),
+    annualSavings: amount(fields.annual_savings_inr, '/year'),
+    monthlySavings: amount(fields.monthly_savings_inr, '/month'),
+    payback: yearsRange(fields.simple_payback_years_range),
   }
 }
 
@@ -92,15 +105,32 @@ export interface CostSavingsView {
   financingNote: string
 }
 
-// There is no Financial Analysis Engine yet, so cost, net investment, savings and payback are
-// "Not available". Verified incentives come from the recommendation (Incentive Engine output).
-export function costSavingsView(recommendation: RecommendationResult | null): CostSavingsView {
-  const incentiveLines = (recommendation?.applicable_incentives ?? []).map((incentive) =>
-    incentive.incentive_amount_inr
-      ? `${incentive.scheme_name}: ${inr(Number(incentive.incentive_amount_inr))}`
-      : incentive.scheme_name,
-  )
-  const labels = recommendation ? financialLabels(recommendation.cost_context) : null
+// Values come from the backend's Financial Analysis Engine (the financial-analysis endpoint; the
+// recommendation's cost_context is the fallback while it is not loaded). Verified incentives come from the
+// Incentive Engine via the recommendation.
+export function costSavingsView(
+  recommendation: RecommendationResult | null,
+  financial: FinancialAnalysisResult | null = null,
+): CostSavingsView {
+  const incentiveLines =
+    financial?.incentive_inr != null && financial.incentive_scheme
+      ? [`${financial.incentive_scheme}: ${inr(financial.incentive_inr)}`]
+      : (recommendation?.applicable_incentives ?? []).map((incentive) =>
+          incentive.incentive_amount_inr
+            ? `${incentive.scheme_name}: ${inr(Number(incentive.incentive_amount_inr))}`
+            : incentive.scheme_name,
+        )
+  const fields: FinancialFields | null = financial
+    ? {
+        installed_cost_range_inr: financial.gross_cost_range_inr,
+        net_investment_range_inr: financial.net_investment_range_inr,
+        annual_savings_inr: financial.annual_savings_inr,
+        monthly_savings_inr: financial.monthly_savings_inr,
+        simple_payback_years_range: financial.simple_payback_years_range,
+      }
+    : (recommendation?.cost_context ?? null)
+  const labels = fields ? financialLabels(fields) : null
+  const basis = financial?.cost_basis
   return {
     installedCost: labels?.installedCost ?? NOT_AVAILABLE,
     incentiveLines,
@@ -108,10 +138,11 @@ export function costSavingsView(recommendation: RecommendationResult | null): Co
     annualSavings: labels?.annualSavings ?? NOT_AVAILABLE,
     monthlySavings: labels?.monthlySavings ?? NOT_AVAILABLE,
     payback: labels?.payback ?? NOT_AVAILABLE,
-    basisNote:
-      recommendation?.cost_context.status === 'available'
+    basisNote: basis
+      ? `Cost is an estimate from the ${basis.source_name} benchmark (effective ${basis.effective_from}), not a vendor quote. GST: ${basis.gst_treatment}`
+      : recommendation?.cost_context.status === 'available'
         ? 'Based on verified India-based cost and incentive data.'
-        : (recommendation?.cost_context.note ?? 'Verified system cost data is not currently available.'),
-    financingNote: 'Financing options not currently calculated.',
+        : (financial?.reason ?? recommendation?.cost_context.note ?? 'Verified system cost data is not currently available.'),
+    financingNote: 'Financing options not currently calculated. Surplus (export) generation is not valued. All figures are estimates.',
   }
 }

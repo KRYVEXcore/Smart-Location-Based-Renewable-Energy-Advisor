@@ -1,4 +1,5 @@
 import { Landmark, PiggyBank, TrendingUp } from 'lucide-react'
+import type { FinancialAnalysisResult } from '../../types/financial'
 import type { RecommendationResult } from '../../types/recommendation'
 import { NOT_AVAILABLE, costSavingsView } from '../../utils/reportView'
 
@@ -12,10 +13,16 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
-// Cost breakdown and savings, in the customer report. Every figure must come from a
-// deterministic engine; until the Financial Analysis Engine exists these read "Not available".
-export function ReportFinancialSection({ recommendation }: { recommendation: RecommendationResult | null }) {
-  const view = costSavingsView(recommendation)
+// Cost breakdown and savings, in the customer report. Every figure comes from the backend's deterministic
+// Financial Analysis Engine (no AI); a figure it could not support reads "Not available", never 0.
+export function ReportFinancialSection({
+  recommendation,
+  financial,
+}: {
+  recommendation: RecommendationResult | null
+  financial: FinancialAnalysisResult | null
+}) {
+  const view = costSavingsView(recommendation, financial)
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">

@@ -1,5 +1,6 @@
 import logging
 import uuid
+from collections.abc import Callable
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
@@ -91,6 +92,27 @@ class TariffCalculationService:
             bill, [_to_slab_input(row) for row in scoped_rows], calc_date, consumer_category
         )
         return estimate.model_copy(update={"discom_name": india.discom.name if india.discom else None})
+
+    def bill_model(self, assessment: Assessment) -> Callable[[Decimal], Decimal | None] | None:
+        """The applicable verified tariff as a function: monthly kWh -> the Tariff Engine's estimated
+        bill in rupees (None when it cannot be calculated). Returns None when no verified applicable
+        tariff can be established. For callers that need a bill at several consumption levels, such as
+        the savings model; no tariff formula lives here.
+        """
+        calc_date = date.today()
+        resolved = self._resolve(assessment, calc_date)
+        if isinstance(resolved, TariffCalculationResponse):
+            return None
+        scoped_rows, _profile, _india, consumer_category = resolved
+        slab_inputs = [_to_slab_input(row) for row in scoped_rows]
+
+        def bill_at(kwh: Decimal) -> Decimal | None:
+            result = calculate_bill_for_grid_consumption(kwh, slab_inputs, calc_date, consumer_category)
+            if result.status != "ok" or result.estimated_monthly_bill_inr is None:
+                return None
+            return Decimal(result.estimated_monthly_bill_inr)
+
+        return bill_at
 
     def _resolve(
         self, assessment: Assessment, calc_date: date

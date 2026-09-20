@@ -73,21 +73,27 @@ class InrRange(BaseModel):
     high: float
 
 
+class YearsRange(BaseModel):
+    low: float
+    high: float
+
+
 class CostContext(BaseModel):
-    """Verified cost-data status. Until a financial analysis with verified cost data exists the
-    status is "not_available" and no cost, savings, payback or affordability is produced (the
-    recommendation itself is still valid). Only a verified analysis may set "available" and fill
-    the values below; they are never estimated here.
+    """The Financial Analysis Engine's result, as the recommendation shows it. `status` is about
+    verified COST data: "not_available" means no verified cost applies (the recommendation itself
+    is still valid) and no cost, net investment or payback is given, although modelled savings may
+    still be. Nothing here is ever estimated by the recommendation or by AI.
     """
 
     status: Literal["not_available", "available"] = "not_available"
     budget_inr: float | None = None
     note: str
     installed_cost_range_inr: InrRange | None = None
+    incentive_inr: float | None = None
     net_investment_range_inr: InrRange | None = None
     annual_savings_inr: float | None = None
     monthly_savings_inr: float | None = None
-    simple_payback_years: float | None = None
+    simple_payback_years_range: YearsRange | None = None
 
 
 class RecommendationResult(BaseModel):

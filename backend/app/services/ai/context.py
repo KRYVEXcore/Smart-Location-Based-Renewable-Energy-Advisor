@@ -11,6 +11,7 @@ from typing import Any
 
 from app.engines.tariff.consumer_category_mapping import map_building_type_to_consumer_category
 from app.models.assessment import Assessment
+from app.schemas.financial import FinancialAnalysisResult
 from app.schemas.incentive import IncentiveEvaluationResponse
 from app.schemas.recommendation import RecommendationResult
 from app.schemas.solar import SolarCalculationResponse
@@ -20,7 +21,8 @@ from app.schemas.wind import WindCalculationResponse
 NOT_AVAILABLE = {"status": "unavailable", "reason": "This result could not be produced right now."}
 
 APPLICATION_LIMITS = {
-    "cost_savings_payback_roi": "not implemented - no verified result exists",
+    "financial_analysis": "deterministic estimates only (see the financial_analysis section); any value it lacks is unavailable",
+    "roi_and_future_returns": "not calculated",
     "live_monitoring": "not connected - no live generation, battery or device data exists",
 }
 
@@ -167,6 +169,49 @@ def _recommendation(result: RecommendationResult | None) -> dict:
     }
 
 
+def _financial(result: FinancialAnalysisResult | None) -> dict:
+    """The Financial Analysis Engine's result, unchanged. The model may quote these figures and must
+    not recompute them; a value the engine could not support is simply absent (see status/reason)."""
+    if result is None:
+        return NOT_AVAILABLE
+    basis = result.cost_basis
+    return {
+        "status": result.status,
+        "reason": result.reason,
+        "technology": result.technology,
+        "capacity_kw": result.capacity_kw,
+        "gross_cost_range_inr": result.gross_cost_range_inr.model_dump() if result.gross_cost_range_inr else None,
+        "cost_basis": None
+        if basis is None
+        else {
+            "kind": basis.cost_kind,
+            "source": basis.source_name,
+            "document": basis.source_document,
+            "effective_from": basis.effective_from.isoformat(),
+            "capacity_basis": basis.capacity_basis,
+            "gst_treatment": basis.gst_treatment,
+            "inclusions": basis.inclusions,
+            "exclusions": basis.exclusions,
+        },
+        "incentive_inr": result.incentive_inr,
+        "incentive_scheme": result.incentive_scheme,
+        "incentive_note": result.incentive_note,
+        "net_investment_range_inr": result.net_investment_range_inr.model_dump() if result.net_investment_range_inr else None,
+        "estimated_annual_savings_inr": result.annual_savings_inr,
+        "estimated_monthly_savings_inr": result.monthly_savings_inr,
+        "baseline_annual_bill_inr": result.baseline_annual_bill_inr,
+        "annual_bill_after_solar_inr": result.annual_bill_after_solar_inr,
+        "annual_surplus_generation_kwh_not_valued": result.annual_surplus_generation_kwh,
+        "estimated_simple_payback_years_range": result.simple_payback_years_range.model_dump()
+        if result.simple_payback_years_range
+        else None,
+        "payback_note": result.payback_note,
+        "tariff": result.tariff_name,
+        "methodology": result.methodology,
+        "limitations": result.limitations,
+    }
+
+
 def _incentives(result: IncentiveEvaluationResponse | None, recommendation: RecommendationResult | None) -> dict:
     if result is None:
         return NOT_AVAILABLE
@@ -234,6 +279,8 @@ def _has_data(name: str, section: dict) -> bool:
         return section.get("status") == "ok" and bool(section.get("programmes"))
     if name == "recommendation":
         return section.get("status") == "recommended"
+    if name == "financial_analysis":
+        return section.get("status") in ("complete", "cost_unavailable", "savings_unavailable")
     return section.get("status") == "ok"
 
 
@@ -245,6 +292,7 @@ def build_advisor_context(
     tariff: TariffCalculationResponse | None,
     incentives: IncentiveEvaluationResponse | None,
     recommendation: RecommendationResult | None,
+    financial: FinancialAnalysisResult | None = None,
 ) -> dict:
     location = assessment.location
     constraints = assessment.constraints
@@ -275,6 +323,7 @@ def build_advisor_context(
             "tariff": _tariff(tariff),
             "incentives": _incentives(incentives, recommendation),
             "recommendation": _recommendation(recommendation),
+            "financial_analysis": _financial(financial),
             "application_limits": APPLICATION_LIMITS,
         }
     )
@@ -286,7 +335,7 @@ def _num(value: object | None) -> float | None:
 
 def available_topics(context: dict) -> dict[str, bool]:
     """Which result sections actually hold verified data (drives suggested questions)."""
-    return {name: _has_data(name, context.get(name, {})) for name in ("solar", "wind", "tariff", "incentives", "recommendation")}
+    return {name: _has_data(name, context.get(name, {})) for name in ("solar", "wind", "tariff", "incentives", "recommendation", "financial_analysis")}
 
 
 def suggested_questions(topics: dict[str, bool]) -> list[str]:
@@ -301,4 +350,6 @@ def suggested_questions(topics: dict[str, bool]) -> list[str]:
         questions.append("Explain my tariff")
     if topics["incentives"]:
         questions.append("What incentives are available?")
+    if topics["financial_analysis"]:
+        questions.extend(["What will my system cost?", "What will I save?", "What is my payback?"])
     return questions

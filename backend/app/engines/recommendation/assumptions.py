@@ -15,7 +15,7 @@ RULES = [
     "4. If no feasible solar capacity reaches the target, choose the largest technically feasible one and say the target is not met.",
     "5. Solar is preferred over small wind when both are feasible; wind is recommended only when no solar capacity is feasible.",
     "6. Hybrid and battery storage are not recommended: no deterministic engine exists for them yet.",
-    "7. Cost, savings and payback are never produced: no verified cost data exists.",
+    "7. Cost, savings and payback come only from the deterministic Financial Analysis Engine, from verified cost and tariff data; they are unavailable, never guessed, when that data is missing.",
 ]
 
 COST_UNAVAILABLE_NOTE = "Verified system cost data is not currently available."

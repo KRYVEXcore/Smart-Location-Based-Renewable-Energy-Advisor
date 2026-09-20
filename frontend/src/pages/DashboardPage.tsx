@@ -31,6 +31,7 @@ import { useSolarCalculation } from '../hooks/useSolarCalculation'
 import { useWindCalculation } from '../hooks/useWindCalculation'
 import { useTariffCalculation } from '../hooks/useTariffCalculation'
 import { useIncentiveEvaluation } from '../hooks/useIncentiveEvaluation'
+import { useFinancialAnalysis } from '../hooks/useFinancialAnalysis'
 import { useRecommendation } from '../hooks/useRecommendation'
 import type { AssessmentResponse } from '../types/assessmentApi'
 
@@ -69,6 +70,7 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
   const { result: tariffResult, status: tariffStatus, runCalculation: runTariffCalculation } = useTariffCalculation()
   const { result: incentiveResult, status: incentiveStatus, runEvaluation: runIncentiveEvaluation } = useIncentiveEvaluation()
   const { result: recommendation, status: recommendationStatus, runRecommendation } = useRecommendation()
+  const { result: financial, status: financialStatus, runFinancialAnalysis } = useFinancialAnalysis()
   const [isRetryingEstimate, setIsRetryingEstimate] = useState(false)
 
   useEffect(() => {
@@ -119,6 +121,7 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
       runTariffCalculation(assessment.id)
       runIncentiveEvaluation(assessment.id, DEFAULT_INCENTIVE_TECHNOLOGY, DEFAULT_INCENTIVE_CAPACITY_KW)
       runRecommendation(assessment.id)
+      runFinancialAnalysis(assessment.id)
     }
   }, [
     assessment,
@@ -128,6 +131,7 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
     runTariffCalculation,
     runIncentiveEvaluation,
     runRecommendation,
+    runFinancialAnalysis,
   ])
 
   function handleRetryEstimate() {
@@ -223,7 +227,18 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
 
       <h2 className="mt-8 text-xl font-bold text-slate-900">Cost and savings</h2>
       <div className="mt-4">
-        <ReportFinancialSection recommendation={recommendation} />
+        {(financialStatus === 'idle' || financialStatus === 'loading') && (
+          <p className="mb-3 flex items-center gap-2 text-sm text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            Working out your cost and savings…
+          </p>
+        )}
+        {financialStatus === 'error' && (
+          <p className="mb-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            The detailed cost and savings analysis is unavailable right now.
+          </p>
+        )}
+        <ReportFinancialSection recommendation={recommendation} financial={financial} />
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-3">

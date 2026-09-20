@@ -1133,8 +1133,13 @@ See [docs/bill-first-assessment.md](docs/bill-first-assessment.md).
 
 **Recommendation (Phase 10).** `GET /api/v1/recommendations/{id}` picks a technology and size with deterministic rules over the
 existing engines' outputs (smallest technically feasible solar size that reaches the 100% annual coverage target; wind only when
-its screening is feasible; no hybrid, battery, cost, savings or payback). The dashboard shows it, and SHREA AI explains it without
+its screening is feasible; no hybrid or battery; cost, savings and payback come from the Phase 11 financial analysis). The dashboard shows it, and SHREA AI explains it without
 choosing anything itself. See [docs/ai-advisor.md](docs/ai-advisor.md).
+
+**Financial analysis (Phase 11).** `GET /api/v1/financial-analysis/{id}` returns an estimated gross cost (the official MNRE benchmark for the
+exact recommended capacity), the verified incentive, net investment, savings (the Tariff Engine applied month by month to the solar offset)
+and simple payback. It is deterministic, never calls an AI, and leaves anything unsupported unavailable. Export income and financing are not
+modelled. See [docs/financial-analysis.md](docs/financial-analysis.md).
 
 **Voice (Phase 9).** The chat has an opt-in microphone: speech is turned into text for the same advisor
 request, and replies are spoken back with the browser's speech synthesis. It is an input/output layer only;

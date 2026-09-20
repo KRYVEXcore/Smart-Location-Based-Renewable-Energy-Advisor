@@ -136,6 +136,7 @@ class AdvisorService:
             tariff=results.tariff,
             incentives=results.incentives,
             recommendation=results.recommendation,
+            financial=results.financial,
         )
 
     def _validate_reply(self, text: str) -> str:

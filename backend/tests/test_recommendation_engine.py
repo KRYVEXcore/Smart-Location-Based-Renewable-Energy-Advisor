@@ -345,7 +345,7 @@ def test_cost_message_states_keep_the_recommendation_and_never_invent_affordabil
     for result in (with_budget, without_budget):
         assert result.recommendation_status == "recommended" and result.recommended_capacity_kw == 3
         assert result.cost_context.status == "not_available"
-        assert result.cost_context.installed_cost_range_inr is None and result.cost_context.simple_payback_years is None
+        assert result.cost_context.installed_cost_range_inr is None and result.cost_context.simple_payback_years_range is None
     assert with_budget.cost_context.note == (
         "A budget was provided, but verified system cost data is not available, so affordability cannot yet be calculated."
     )
@@ -354,14 +354,17 @@ def test_cost_message_states_keep_the_recommendation_and_never_invent_affordabil
 
 
 def test_a_verified_cost_analysis_can_be_represented_without_the_engine_producing_one():
-    from app.schemas.recommendation import CostContext, InrRange
+    from app.schemas.recommendation import CostContext, InrRange, YearsRange
 
     available = CostContext(
-        status="available", note="", installed_cost_range_inr=InrRange(low=1, high=2), simple_payback_years=1.4
+        status="available",
+        note="",
+        installed_cost_range_inr=InrRange(low=1, high=2),
+        simple_payback_years_range=YearsRange(low=1.4, high=2.8),
     )
 
     assert available.model_dump(mode="json")["status"] == "available"
-    assert available.simple_payback_years == 1.4
+    assert available.simple_payback_years_range.low == 1.4
 
 
 def test_no_cost_savings_or_payback_is_ever_produced():

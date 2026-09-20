@@ -49,7 +49,8 @@ const stateB = result({
   net_investment_range_inr: { low: 102000, high: 132000 },
   annual_savings_inr: 84000,
   monthly_savings_inr: 7000,
-  simple_payback_years: 1.4,
+  incentive_inr: 78000,
+  simple_payback_years_range: { low: 1.4, high: 1.4 },
 })
 
 describe('cost message on the recommendation card', () => {

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.routes import advisor, assessments, health, incentives, locations, recommendations, solar, tariffs, wind
+from app.api.v1.routes import advisor, assessments, financial, health, incentives, locations, recommendations, solar, tariffs, wind
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
@@ -12,3 +12,4 @@ api_router.include_router(incentives.router, tags=["incentives"])
 api_router.include_router(wind.router, tags=["wind"])
 api_router.include_router(advisor.router, tags=["advisor"])
 api_router.include_router(recommendations.router, tags=["recommendations"])
+api_router.include_router(financial.router, tags=["financial-analysis"])

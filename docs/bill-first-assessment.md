@@ -7,7 +7,7 @@ taken from units the customer chooses to enter.
 ## Flow
 
 Location -> building type -> **average monthly electricity bill** -> roof/space and other constraints
--> report (recommendation, cost/savings placeholders) -> SHREA AI explains it. The bill can be typed or
+-> report (recommendation, estimated cost and savings) -> SHREA AI explains it. The bill can be typed or
 spoken ("My electricity bill is around seven thousand five hundred rupees a month").
 
 ## Inputs and what is authoritative
@@ -62,5 +62,5 @@ itself.
 - Only verified tariffs are used (currently five states' residential tariffs); elsewhere the estimate is unavailable and
   the customer can enter units instead.
 - Creating a bill-first assessment now waits for location resolution (the location profile is cached afterwards).
-- Cost, savings and payback are still not calculated (next phase); the report shows "Not available" for them, and
-  "Financing options not currently calculated."
+- Cost, savings and payback come from the Financial Analysis Engine (Phase 11, [financial-analysis.md](financial-analysis.md));
+  the report shows "Not available" for anything it cannot support, and "Financing options not currently calculated."

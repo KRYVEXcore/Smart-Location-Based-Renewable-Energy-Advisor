@@ -61,7 +61,10 @@ def test_endpoint_returns_the_structured_recommendation_and_never_calls_an_ai(cl
     assert body["technical_feasibility"] == "technically_feasible"
     assert body["recommendation_reason"] and body["reason_code"] == "smallest_capacity_meeting_target"
     assert {e["technology"] for e in body["excluded_options"]} >= {"wind", "hybrid", "battery"}
-    assert body["cost_context"]["status"] == "not_available"
+    # No tariff is configured here, so savings and payback are unavailable; the verified cost is not.
+    assert body["cost_context"]["status"] == "available"
+    assert body["cost_context"]["installed_cost_range_inr"]["low"] > 0
+    assert body["cost_context"]["annual_savings_inr"] is None and body["cost_context"]["simple_payback_years_range"] is None
     assert body["rules"] and body["recommendation_version"]
 
 
@@ -156,7 +159,8 @@ def test_a_college_does_not_get_the_residential_incentive(client, valid_payload,
 
 def test_budget_never_becomes_an_affordability_or_cost_figure(client, valid_payload, db_session):
     _setup(db_session, FakeChatProvider())
-    aid = _create(client, valid_payload, budget=300000, backup=True)
+    # A college has no verified cost data (the MNRE benchmark covers residential systems only).
+    aid = _create(client, valid_payload, budget=300000, backup=True, building="college")
 
     body = _recommendation(client, aid).json()
 
@@ -168,10 +172,11 @@ def test_budget_never_becomes_an_affordability_or_cost_figure(client, valid_payl
     assert cost["status"] == "not_available"
     assert {k: v for k, v in cost.items() if k not in ("status", "budget_inr", "note")} == {
         "installed_cost_range_inr": None,
+        "incentive_inr": None,
         "net_investment_range_inr": None,
         "annual_savings_inr": None,
         "monthly_savings_inr": None,
-        "simple_payback_years": None,
+        "simple_payback_years_range": None,
     }
     assert not {"savings", "payback", "roi", "installation_cost"} & set(body)
 
@@ -195,7 +200,7 @@ def test_the_advisor_context_carries_the_recommendation_exactly(client, valid_pa
     assert section["coverage_percent"] == api["coverage_percent"]
     assert section["reason"] == api["recommendation_reason"]
     assert any(e["technology"] == "wind" for e in section["excluded_options"])
-    assert "not currently available" in section["cost"]
+    assert "MNRE benchmark" in section["cost"]
 
 
 def test_the_prompt_makes_the_model_explain_not_choose(client, valid_payload, db_session):

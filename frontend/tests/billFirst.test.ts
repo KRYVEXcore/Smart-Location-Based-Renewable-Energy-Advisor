@@ -212,7 +212,7 @@ describe('report: cost, savings and payback are only shown when a deterministic 
       assert.equal(value, NOT_AVAILABLE)
     }
     assert.deepEqual(view.incentiveLines, ['PM Surya Ghar: ₹78,000'])
-    assert.equal(view.financingNote, 'Financing options not currently calculated.')
+    assert.equal(view.financingNote, 'Financing options not currently calculated. Surplus (export) generation is not valued. All figures are estimates.')
   })
 
   it('handles a missing recommendation safely with no fake zeros', () => {
