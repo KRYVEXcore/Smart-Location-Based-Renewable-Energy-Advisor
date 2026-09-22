@@ -23,6 +23,7 @@ import { ElectricityTariffSection } from '../components/tariff/ElectricityTariff
 import { GovernmentIncentivesSection } from '../components/incentive/GovernmentIncentivesSection'
 import { RecommendationCard } from '../components/recommendation/RecommendationCard'
 import { ReportFinancialSection } from '../components/recommendation/ReportFinancialSection'
+import { LiveMonitoringSection } from '../components/monitoring/LiveMonitoringSection'
 import { estimateConsumption, getAssessment } from '../services/assessmentService'
 import { energyView } from '../utils/reportView'
 import { ApiError } from '../services/apiClient'
@@ -32,6 +33,7 @@ import { useWindCalculation } from '../hooks/useWindCalculation'
 import { useTariffCalculation } from '../hooks/useTariffCalculation'
 import { useIncentiveEvaluation } from '../hooks/useIncentiveEvaluation'
 import { useFinancialAnalysis } from '../hooks/useFinancialAnalysis'
+import { useMonitoringReadings } from '../hooks/useMonitoringReadings'
 import { useRecommendation } from '../hooks/useRecommendation'
 import type { AssessmentResponse } from '../types/assessmentApi'
 
@@ -71,6 +73,7 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
   const { result: incentiveResult, status: incentiveStatus, runEvaluation: runIncentiveEvaluation } = useIncentiveEvaluation()
   const { result: recommendation, status: recommendationStatus, runRecommendation } = useRecommendation()
   const { result: financial, status: financialStatus, runFinancialAnalysis } = useFinancialAnalysis()
+  const monitoringReadings = useMonitoringReadings()
   const [isRetryingEstimate, setIsRetryingEstimate] = useState(false)
 
   useEffect(() => {
@@ -272,6 +275,18 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
           </Button>
         </div>
       )}
+
+      <h2 className="mt-12 text-xl font-bold text-slate-900">Live monitoring</h2>
+      <div className="mt-4">
+        <LiveMonitoringSection
+          readings={monitoringReadings}
+          estimatedAnnualKwh={
+            recommendation?.recommendation_status === 'recommended' && recommendation.recommended_technology === 'solar'
+              ? recommendation.expected_annual_generation_kwh
+              : null
+          }
+        />
+      </div>
 
       <h2 className="mt-12 text-xl font-bold text-slate-900">Location intelligence</h2>
       {!hasCoordinates && (
