@@ -73,7 +73,8 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
   const { result: incentiveResult, status: incentiveStatus, runEvaluation: runIncentiveEvaluation } = useIncentiveEvaluation()
   const { result: recommendation, status: recommendationStatus, runRecommendation } = useRecommendation()
   const { result: financial, status: financialStatus, runFinancialAnalysis } = useFinancialAnalysis()
-  const monitoringReadings = useMonitoringReadings()
+  const [demoMonitoring, setDemoMonitoring] = useState(false)
+  const monitoringReadings = useMonitoringReadings(demoMonitoring)
   const [isRetryingEstimate, setIsRetryingEstimate] = useState(false)
 
   useEffect(() => {
@@ -276,7 +277,12 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
         </div>
       )}
 
-      <h2 className="mt-12 text-xl font-bold text-slate-900">Live monitoring</h2>
+      <div className="mt-12 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-bold text-slate-900">Live monitoring</h2>
+        <Button variant="secondary" size="md" onClick={() => setDemoMonitoring((value) => !value)}>
+          {demoMonitoring ? 'Exit demo mode' : 'Show demo data'}
+        </Button>
+      </div>
       <div className="mt-4">
         <LiveMonitoringSection
           readings={monitoringReadings}
@@ -285,6 +291,7 @@ function DashboardContent({ assessmentId }: { assessmentId: string | undefined }
               ? recommendation.expected_annual_generation_kwh
               : null
           }
+          isDemo={demoMonitoring}
         />
       </div>
 

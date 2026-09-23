@@ -251,6 +251,35 @@ describe('adapter interface (Phase 12.1: no real source is connected yet)', () =
   })
 })
 
+describe('demo mode (Phase 12.2: presentation only, never real telemetry)', () => {
+  it('defaults to off, so the dashboard still shows nothing connected', () => {
+    assert.deepEqual(useMonitoringReadings(), [])
+    assert.deepEqual(useMonitoringReadings(false), [])
+  })
+
+  it('provides realistic sample readings for all four cards when switched on, every one tagged as demo', () => {
+    const readings = useMonitoringReadings(true)
+
+    assert.ok(readings.length > 0)
+    for (const item of readings) assert.equal(item.source, 'demo')
+
+    const views = monitoringViews(readings, Date.now())
+    for (const card of [views.flow, views.solar, views.inverter, views.grid]) assert.equal(card.state, 'online')
+  })
+
+  it('never labels demo readings as a real source, and switching off returns to not-connected', () => {
+    const demo = useMonitoringReadings(true)
+    assert.ok(!demo.some((item) => item.source !== 'demo'))
+    assert.deepEqual(useMonitoringReadings(false), [])
+  })
+
+  it('LiveMonitoringSection shows an unmistakable "DEMO DATA — SIMULATED" label only when isDemo is true', () => {
+    const source = readFileSync(new URL('../src/components/monitoring/LiveMonitoringSection.tsx', import.meta.url), 'utf8')
+    assert.match(source, /DEMO DATA.*SIMULATED/)
+    assert.match(source, /isDemo/)
+  })
+})
+
 describe('responsive layout', () => {
   const source = readFileSync(new URL('../src/components/monitoring/LiveMonitoringSection.tsx', import.meta.url), 'utf8')
 

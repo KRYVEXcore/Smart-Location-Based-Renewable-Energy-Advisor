@@ -182,9 +182,12 @@ interface LiveMonitoringSectionProps {
   readings: MonitoringReading[]
   // The Solar Engine's yearly estimate, shown only as a clearly labelled estimate, never as monitored generation.
   estimatedAnnualKwh?: number | null
+  // Phase 12.2: readings are simulated fixture data for the SIH demo, never real telemetry. Must stay
+  // clearly labelled whenever true.
+  isDemo?: boolean
 }
 
-export function LiveMonitoringSection({ readings, estimatedAnnualKwh }: LiveMonitoringSectionProps) {
+export function LiveMonitoringSection({ readings, estimatedAnnualKwh, isDemo = false }: LiveMonitoringSectionProps) {
   // Re-evaluates staleness while devices report, so a device that stops reporting turns Offline.
   const [now, setNow] = useState(() => Date.now())
   const hasReadings = readings.length > 0
@@ -198,7 +201,13 @@ export function LiveMonitoringSection({ readings, estimatedAnnualKwh }: LiveMoni
 
   return (
     <div>
-      <p className="text-sm text-slate-500">Actual device telemetry only. Nothing here is estimated.</p>
+      {isDemo ? (
+        <p className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-amber-800">
+          DEMO DATA — SIMULATED, not from a real device
+        </p>
+      ) : (
+        <p className="text-sm text-slate-500">Actual device telemetry only. Nothing here is estimated.</p>
+      )}
       <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <EnergyFlowCard view={views.flow} className="md:col-span-2 lg:col-span-3" />
         <MetricCard
